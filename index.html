@@ -253,7 +253,7 @@ function authScreen(msg, ok) {
       <form id="authForm">
         ${signup ? `<label class="f"><span>이름 (관리 화면에 보여요)</span><input class="inp" name="name" required maxlength="12" placeholder="예: 홍길동"></label>` : ''}
         <label class="f"><span>이메일</span><input class="inp" name="email" type="email" autocomplete="email" required placeholder="example@naver.com"></label>
-        <label class="f"><span>비밀번호${signup ? ' (6자 이상)' : ''}</span><input class="inp" name="pw" type="password" minlength="6" required autocomplete="${signup ? 'new-password' : 'current-password'}"></label>
+        <label class="f"><span>비밀번호${signup ? ' (4자리 이상)' : ''}</span><input class="inp" name="pw" type="password" minlength="4" required autocomplete="${signup ? 'new-password' : 'current-password'}"></label>
         ${signup ? '<p class="hint">⚠️ 비밀번호 찾기 기능이 없어요. 꼭 적어 두세요.</p>' : ''}
         <button class="btn pri block" id="authBtn" type="submit">${signup ? '가입하기' : '로그인'}</button>
       </form>
@@ -271,20 +271,24 @@ function errKo(e) {
   if (m.includes('already registered') || m.includes('already been registered')) return '이미 가입된 이메일이에요. 로그인해 주세요.';
   if (m.includes('email not confirmed')) return '메일함에서 가입 확인 링크를 먼저 눌러 주세요.';
   if (m.includes('rate limit') || m.includes('too many')) return '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.';
-  if (m.includes('password')) return '비밀번호는 6자 이상으로 해 주세요.';
+  if (m.includes('password')) return '비밀번호는 4자리 이상으로 해 주세요.';
   return '문제가 생겼어요: ' + (e && e.message);
 }
+// Supabase는 6자 이상만 받아서, 앱에서 받은 비밀번호 앞에 고정 글자를 붙여 보냄 (4자리도 가능)
+const pwFor = p => 'cw#' + p;
 async function doAuth(e) {
   e.preventDefault();
   const fd = new FormData(e.target), email = fd.get('email').trim(), password = fd.get('pw');
   $('#authBtn').disabled = true; $('#authBtn').textContent = '잠시만요…';
   if (authMode === 'signup') {
     const name = fd.get('name').trim();
-    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { carwash_name: name }, emailRedirectTo: location.origin + location.pathname } });
+    const { data, error } = await sb.auth.signUp({ email, password: pwFor(password), options: { data: { carwash_name: name }, emailRedirectTo: location.origin + location.pathname } });
     if (error) return authScreen(errKo(error));
     if (!data.session) { authMode = 'login'; return authScreen('가입 확인 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인해 주세요.', true); }
   } else {
-    const { error } = await sb.auth.signInWithPassword({ email, password });
+    let { error } = await sb.auth.signInWithPassword({ email, password: pwFor(password) });
+    // 4자리 기능 전에 가입한 계정은 원래 비밀번호로 한 번 더 시도
+    if (error && password.length >= 6 && /invalid login/i.test(error.message)) ({ error } = await sb.auth.signInWithPassword({ email, password }));
     if (error) return authScreen(errKo(error));
   }
 }
