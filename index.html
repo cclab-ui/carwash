@@ -16,6 +16,7 @@
 <meta name="twitter:image" content="https://cclab-ui.github.io/carwash/og-image.png">
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1a66e0">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -536,6 +537,9 @@ function vMsg() {
     <label class="f"><span>입금 계좌 {계좌}</span><input class="inp" name="account" value="${esc(s.account)}" placeholder="예: 국민 123456-01-123456 (홍길동)"></label>
     <button class="btn pri block" type="submit">저장</button>
   </form>
+  ${isStandalone() ? '' : `<h2>홈 화면에 추가</h2>
+  <div class="card"><p style="line-height:1.6;margin-bottom:12px">홈 화면에 자동차 아이콘을 만들면 앱처럼 바로 열 수 있고, 로그인도 더 오래 유지돼요.</p>
+  <button class="btn pri block" data-act="install">📲 홈 화면에 추가하기</button></div>`}
   ${ME.role === 'admin' ? vAdmin() : ''}
   <h2>내 계정</h2>
   <div class="card"><div class="row between"><div><b>${esc(ME.name)}</b>${ME.role === 'admin' ? ' <span class="badge b-blue">관리자</span>' : ''}<div class="sub">${esc(ME.email)}</div></div>
@@ -852,6 +856,7 @@ const ACT = {
   restore: () => { const f = $('#restoreFile'); f.value = ''; f.click(); },
   refresh: async () => { await loadAll(); toast('최신 기록을 불러왔어요'); },
   logout: () => confirmSheet('로그아웃할까요?<br><span class="sub">다시 쓰려면 이메일과 비밀번호를 입력해야 해요.</span>', '로그아웃', () => { try { localStorage.removeItem(cacheKey()); } catch (e) {} sb.auth.signOut(); }),
+  install: () => doInstall(),
   close: () => closeSheet(),
   closeBg: (d, el, e) => { if (e.target === el) closeSheet(); }
 };
@@ -865,6 +870,23 @@ document.addEventListener('input', e => { if (e.target.id === 'custQ') { S.custQ
 document.addEventListener('submit', e => {
   if (e.target.id === 'setForm') { e.preventDefault(); const fd = new FormData(e.target); saveSettings({ ...settings(), bizName: fd.get('bizName').trim() || '출장세차', phone: fmtPhone(fd.get('phone').trim()), account: fd.get('account').trim() }); toast('저장했어요'); }
 });
+/* 홈 화면에 추가 (갤럭시·크롬은 설치 창, 아이폰·삼성인터넷은 방법 안내) */
+let deferredPrompt = null;
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; toast('홈 화면에 추가했어요!'); render(); });
+async function doInstall() {
+  if (deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch (e) {} deferredPrompt = null; return; }
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua), samsung = /SamsungBrowser/.test(ua);
+  const steps = ios
+    ? ['아래쪽(또는 위쪽) <b>공유 버튼 ⬆️</b>을 눌러요', '<b>홈 화면에 추가</b>를 눌러요', '오른쪽 위 <b>추가</b>를 누르면 끝!']
+    : samsung
+    ? ['오른쪽 아래 <b>메뉴 ☰</b>를 눌러요', '<b>현재 페이지 추가</b>를 눌러요', '<b>홈 화면</b>을 고르면 끝!']
+    : ['오른쪽 위 <b>점 세 개 ⋮</b>를 눌러요', '<b>홈 화면에 추가</b> 또는 <b>앱 설치</b>를 눌러요<br><span class="sub">안 보이면 <b>전송, 저장, 공유</b> 안에 있어요</span>', '<b>설치</b>(또는 <b>추가</b>)를 누르면 끝!'];
+  openSheet('홈 화면에 추가하기', steps.map((t, i) => `<div class="row" style="align-items:flex-start;margin-bottom:14px"><span class="badge b-blue" style="font-size:15px">${i + 1}</span><div style="line-height:1.6">${t}</div></div>`).join('') + '<button class="btn block" data-act="close">알겠어요</button>');
+}
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 $('#restoreFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) doRestore(f); });
 init();
 </script>
