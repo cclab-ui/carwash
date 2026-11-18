@@ -624,7 +624,7 @@ function confirmSheet(msg, okLabel, fn) {
 
 function carForm(id) {
   const c = id ? S.cars[id] : { cycleDays: 0 };
-  const cyc = [0, 7, 14, 21, 30];
+  const regular = Number(c.cycleDays) > 0;
   openSheet(id ? '고객 정보 수정' : '새 고객(차량) 등록', `<form id="carForm">
     <label class="f"><span>차량번호 *</span><input class="inp" name="plate" required value="${esc(c.plate)}" placeholder="예: 12가 3456" style="font-weight:700;font-size:20px"></label>
     <div id="dupWarn"></div>
@@ -635,12 +635,26 @@ function carForm(id) {
     <label class="f"><span>연락처</span><input class="inp" name="phone" value="${esc(c.phone)}" placeholder="010-1234-5678" inputmode="tel"></label>
     <label class="f"><span>주차 위치 / 주소</span><input class="inp" name="place" value="${esc(c.place)}" placeholder="예: OO아파트 102동 지하 2층"></label>
     <label class="f"><span>기본 세차 금액 (원)</span><input class="inp" name="price" value="${esc(c.price)}" placeholder="예: 50000" inputmode="numeric"></label>
-    <label class="f"><span>정기 세차 주기</span><div class="seg">${cyc.map(d => `<label><input type="radio" name="cycleDays" value="${d}" ${Number(c.cycleDays || 0) === d ? 'checked' : ''}><span>${d ? d + '일' : '없음'}</span></label>`).join('')}</div></label>
-    <p class="hint">주기를 정하면, 세차할 때가 된 고객을 홈 화면에서 알려줘요.</p>
+    <label class="f"><span>정기 세차</span><div class="seg">
+      <label><input type="radio" name="regular" value="no" ${regular ? '' : 'checked'}><span>안 함</span></label>
+      <label><input type="radio" name="regular" value="yes" ${regular ? 'checked' : ''}><span>함</span></label>
+    </div></label>
+    <div id="cycleBox" style="display:${regular ? 'block' : 'none'}">
+      <label class="f"><span>며칠마다 세차해요?</span>
+        <div class="row"><input class="inp" name="cycleDays" type="number" min="1" max="365" inputmode="numeric" value="${regular ? esc(c.cycleDays) : ''}" placeholder="예: 10" style="max-width:140px;font-size:20px;font-weight:700"><span style="font-weight:700">일마다</span></div>
+      </label>
+      <p class="hint">세차할 때가 된 고객을 홈 화면에서 알려줘요.</p>
+    </div>
     <label class="f"><span>메모</span><textarea class="inp" name="memo" style="min-height:80px" placeholder="예: 시트 가죽, 실내 방향제 X">${esc(c.memo)}</textarea></label>
     <button class="btn pri block" type="submit">${id ? '수정 완료' : '등록하기'}</button>
   </form>`);
   const f = $('#carForm');
+  f.querySelectorAll('input[name=regular]').forEach(r => r.onchange = () => {
+    const on = f.regular.value === 'yes';
+    $('#cycleBox').style.display = on ? 'block' : 'none';
+    f.cycleDays.required = on; if (on) f.cycleDays.focus();
+  });
+  f.cycleDays.required = regular;
   f.plate.oninput = () => {
     const v = f.plate.value.replace(/\s/g, '');
     const dup = v && carsArr().find(x => x.id !== id && (x.plate || '').replace(/\s/g, '') === v);
@@ -649,7 +663,7 @@ function carForm(id) {
   f.onsubmit = e => {
     e.preventDefault();
     const fd = new FormData(f);
-    const obj = { ...(id ? S.cars[id] : { createdAt: Date.now() }), plate: fd.get('plate').trim(), name: fd.get('name').trim(), model: fd.get('model').trim(), phone: fmtPhone(fd.get('phone').trim()), place: fd.get('place').trim(), price: Number(String(fd.get('price')).replace(/\D/g, '')) || 0, cycleDays: Number(fd.get('cycleDays')) || 0, memo: fd.get('memo').trim() };
+    const obj = { ...(id ? S.cars[id] : { createdAt: Date.now() }), plate: fd.get('plate').trim(), name: fd.get('name').trim(), model: fd.get('model').trim(), phone: fmtPhone(fd.get('phone').trim()), place: fd.get('place').trim(), price: Number(String(fd.get('price')).replace(/\D/g, '')) || 0, cycleDays: fd.get('regular') === 'yes' ? Math.max(0, Math.round(Number(fd.get('cycleDays')) || 0)) : 0, memo: fd.get('memo').trim() };
     const nid = id || uid();
     put('cars', nid, obj); closeSheet(); toast(id ? '수정했어요' : '고객을 등록했어요');
     if (!id) setTimeout(() => openSheet('등록 완료', `<p style="font-size:17px;margin-bottom:16px"><b>${esc(obj.plate)}</b> 차량을 등록했어요.<br>바로 세차 예약을 잡을까요?</p><button class="btn pri block" data-act="newJob" data-car="${nid}">📅 예약 잡기</button><button class="btn block" style="margin-top:8px" data-act="close">나중에</button>`), 50);
@@ -742,7 +756,7 @@ function carDetail(id) {
       <dt>차종</dt><dd>${esc(c.model || '-')}</dd>
       <dt>주차 위치</dt><dd>${esc(c.place || '-')}</dd>
       <dt>기본 금액</dt><dd>${c.price ? won(c.price) + '원' : '-'}</dd>
-      <dt>정기 주기</dt><dd>${Number(c.cycleDays) ? c.cycleDays + '일마다' : '없음'}</dd>
+      <dt>정기 세차</dt><dd>${Number(c.cycleDays) ? c.cycleDays + '일마다' : '안 함'}</dd>
       ${c.memo ? `<dt>메모</dt><dd>${esc(c.memo)}</dd>` : ''}
       <dt>누적</dt><dd>${hist.filter(j => j.status === '완료').length}회 · ${won(total)}원</dd>
     </dl>
