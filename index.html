@@ -883,7 +883,7 @@ async function doInstall() {
     ? ['아래쪽(또는 위쪽) <b>공유 버튼 ⬆️</b>을 눌러요', '<b>홈 화면에 추가</b>를 눌러요', '오른쪽 위 <b>추가</b>를 누르면 끝!']
     : samsung
     ? ['오른쪽 아래 <b>메뉴 ☰</b>를 눌러요', '<b>현재 페이지 추가</b>를 눌러요', '<b>홈 화면</b>을 고르면 끝!']
-    : ['오른쪽 위 <b>점 세 개 ⋮</b>를 눌러요', '<b>홈 화면에 추가</b> 또는 <b>앱 설치</b>를 눌러요<br><span class="sub">안 보이면 <b>전송, 저장, 공유</b> 안에 있어요</span>', '<b>설치</b>(또는 <b>추가</b>)를 누르면 끝!'];
+    : ['오른쪽 위 <b>점 세 개 ⋮</b>를 눌러요', '<b>설치 및 바로가기 만들기</b>를 눌러요<br><span class="sub">폰에 따라 <b>홈 화면에 추가</b> 또는 <b>앱 설치</b>라고 나와요</span>', '<b>설치</b>(또는 <b>추가</b>)를 누르면 끝!'];
   openSheet('홈 화면에 추가하기', steps.map((t, i) => `<div class="row" style="align-items:flex-start;margin-bottom:14px"><span class="badge b-blue" style="font-size:15px">${i + 1}</span><div style="line-height:1.6">${t}</div></div>`).join('') + '<button class="btn block" data-act="close">알겠어요</button>');
 }
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
