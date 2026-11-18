@@ -98,6 +98,9 @@ textarea.inp{min-height:150px;line-height:1.6;resize:vertical}
 .seg label{flex:1;min-width:70px}
 .seg input{display:none}
 .seg span{display:block;text-align:center;padding:11px 6px;border-radius:12px;border:1px solid var(--line);font-weight:500;font-size:15px;background:#fbfcfe}
+.seg5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.seg5 label{min-width:0}
+.seg5 span{padding:11px 2px;font-size:14.5px;white-space:nowrap}
 .seg input:checked+span{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:700}
 .check{display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:var(--gray-soft);margin-bottom:14px;font-weight:700}
 .check input{width:22px;height:22px;accent-color:var(--ok)}
@@ -165,6 +168,20 @@ const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
 const TYPES = ['외부', '내부', '내외부', '기타'];
+/* 정기 세차: 주 2회는 알림이 늦지 않게 3일 간격으로 계산 */
+const CYCLES = [['none', '안 함'], ['w1', '주 1회'], ['w2', '주 2회'], ['biweekly', '격주'], ['custom', '기타']];
+const CYCLE_DAYS = { w1: 7, w2: 3, biweekly: 14 };
+function cycleTypeOf(c) {
+  if (!c) return 'none';
+  if (c.cycleType) return c.cycleType;
+  const d = Number(c.cycleDays) || 0;
+  return d === 0 ? 'none' : d === 7 ? 'w1' : d === 14 ? 'biweekly' : 'custom';
+}
+function cycleLabel(c) {
+  const t = cycleTypeOf(c);
+  if (t === 'custom') return (Number(c.cycleDays) || 0) + '일마다';
+  return (CYCLES.find(x => x[0] === t) || CYCLES[0])[1];
+}
 const METHODS = ['계좌이체', '현금', '카드'];
 const VARS = ['고객명','차량번호','차종','날짜','시간','세차종류','금액','계좌','상호','연락처','주차위치','최근세차일','경과일'];
 const DEFAULT_SETTINGS = {
@@ -450,7 +467,7 @@ function vHome() {
   ${tmrJobs.length ? `<button class="btn soft block" style="margin-bottom:10px" data-act="bulkRemind">💬 내일 예약자 ${tmrJobs.length}명에게 알림 문자</button>` + tmrJobs.map(j => jobCard(j)).join('') : '<div class="empty">내일 예정된 세차가 없어요</div>'}
   ${due.length ? `<h2>세차할 때 된 정기 고객 <small>${due.length}명</small></h2>` + due.map(c => `
     <div class="card"><div class="row between">
-      <div><div class="plate">${esc(c.plate)}</div><div class="sub">${esc(c.name || '')} · 마지막 ${esc(fmtDate(c.lw))} · ${c.cycleDays}일 주기</div></div>
+      <div><div class="plate">${esc(c.plate)}</div><div class="sub">${esc(c.name || '')} · 마지막 ${esc(fmtDate(c.lw))} · ${esc(cycleLabel(c))}</div></div>
       <span class="badge ${c.due < t ? 'b-red' : 'b-warn'}">${c.due < t ? diffDays(c.due, t) + '일 지남' : c.due === t ? '오늘' : esc(fmtDate(c.due))}</span>
     </div><div class="actions">
       <button class="btn pri sm" data-act="newJob" data-car="${c.id}" data-date="${c.due < t ? t : c.due}">예약 잡기</button>
@@ -488,7 +505,7 @@ function vCust() {
     const lw = lastWash(c.id), nj = nextJob(c.id);
     return `<div class="card tap" data-act="carDetail" data-id="${c.id}">
       <div class="row between"><div class="plate">${esc(c.plate)}</div>
-      <div class="row">${unpaidBy[c.id] ? `<span class="badge b-warn">미입금 ${unpaidBy[c.id]}</span>` : ''}${Number(c.cycleDays) > 0 ? `<span class="badge b-blue">${c.cycleDays}일 정기</span>` : ''}</div></div>
+      <div class="row">${unpaidBy[c.id] ? `<span class="badge b-warn">미입금 ${unpaidBy[c.id]}</span>` : ''}${Number(c.cycleDays) > 0 ? `<span class="badge b-blue">정기 ${esc(cycleLabel(c))}</span>` : ''}</div></div>
       <div class="sub" style="margin-top:3px">${esc(c.name || '이름 없음')} · ${esc(fmtPhone(c.phone)) || '연락처 없음'}${c.model ? ' · ' + esc(c.model) : ''}</div>
       <div class="sub" style="margin-top:3px">${nj ? `📅 다음 ${esc(fmtDate(nj.date))} ${esc(nj.time || '')}` : lw ? `마지막 세차 ${esc(fmtDate(lw))}` : '세차 기록 없음'}</div>
     </div>`; }).join('') : `<div class="empty">${q ? '검색 결과가 없어요' : '등록된 고객이 없어요'}</div>`}`;
@@ -624,7 +641,7 @@ function confirmSheet(msg, okLabel, fn) {
 
 function carForm(id) {
   const c = id ? S.cars[id] : { cycleDays: 0 };
-  const regular = Number(c.cycleDays) > 0;
+  const ct = cycleTypeOf(c);
   openSheet(id ? '고객 정보 수정' : '새 고객(차량) 등록', `<form id="carForm">
     <label class="f"><span>차량번호 *</span><input class="inp" name="plate" required value="${esc(c.plate)}" placeholder="예: 12가 3456" style="font-weight:700;font-size:20px"></label>
     <div id="dupWarn"></div>
@@ -635,26 +652,25 @@ function carForm(id) {
     <label class="f"><span>연락처</span><input class="inp" name="phone" value="${esc(c.phone)}" placeholder="010-1234-5678" inputmode="tel"></label>
     <label class="f"><span>주차 위치 / 주소</span><input class="inp" name="place" value="${esc(c.place)}" placeholder="예: OO아파트 102동 지하 2층"></label>
     <label class="f"><span>기본 세차 금액 (원)</span><input class="inp" name="price" value="${esc(c.price)}" placeholder="예: 50000" inputmode="numeric"></label>
-    <label class="f"><span>정기 세차</span><div class="seg">
-      <label><input type="radio" name="regular" value="no" ${regular ? '' : 'checked'}><span>안 함</span></label>
-      <label><input type="radio" name="regular" value="yes" ${regular ? 'checked' : ''}><span>함</span></label>
+    <label class="f"><span>정기 세차</span><div class="seg seg5">
+      ${CYCLES.map(([k, l]) => `<label><input type="radio" name="cycleType" value="${k}" ${ct === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}
     </div></label>
-    <div id="cycleBox" style="display:${regular ? 'block' : 'none'}">
+    <div id="cycleBox" style="display:${ct === 'custom' ? 'block' : 'none'}">
       <label class="f"><span>며칠마다 세차해요?</span>
-        <div class="row"><input class="inp" name="cycleDays" type="number" min="1" max="365" inputmode="numeric" value="${regular ? esc(c.cycleDays) : ''}" placeholder="예: 10" style="max-width:140px;font-size:20px;font-weight:700"><span style="font-weight:700">일마다</span></div>
+        <div class="row"><input class="inp" name="cycleDays" type="number" min="1" max="365" inputmode="numeric" value="${ct === 'custom' ? esc(c.cycleDays) : ''}" placeholder="예: 10" style="max-width:140px;font-size:20px;font-weight:700"><span style="font-weight:700">일마다</span></div>
       </label>
-      <p class="hint">세차할 때가 된 고객을 홈 화면에서 알려줘요.</p>
     </div>
+    <p class="hint">정기 세차 고객은 세차할 때가 되면 홈 화면에서 알려줘요.</p>
     <label class="f"><span>메모</span><textarea class="inp" name="memo" style="min-height:80px" placeholder="예: 시트 가죽, 실내 방향제 X">${esc(c.memo)}</textarea></label>
     <button class="btn pri block" type="submit">${id ? '수정 완료' : '등록하기'}</button>
   </form>`);
   const f = $('#carForm');
-  f.querySelectorAll('input[name=regular]').forEach(r => r.onchange = () => {
-    const on = f.regular.value === 'yes';
+  f.querySelectorAll('input[name=cycleType]').forEach(r => r.onchange = () => {
+    const on = f.cycleType.value === 'custom';
     $('#cycleBox').style.display = on ? 'block' : 'none';
     f.cycleDays.required = on; if (on) f.cycleDays.focus();
   });
-  f.cycleDays.required = regular;
+  f.cycleDays.required = ct === 'custom';
   f.plate.oninput = () => {
     const v = f.plate.value.replace(/\s/g, '');
     const dup = v && carsArr().find(x => x.id !== id && (x.plate || '').replace(/\s/g, '') === v);
@@ -663,7 +679,7 @@ function carForm(id) {
   f.onsubmit = e => {
     e.preventDefault();
     const fd = new FormData(f);
-    const obj = { ...(id ? S.cars[id] : { createdAt: Date.now() }), plate: fd.get('plate').trim(), name: fd.get('name').trim(), model: fd.get('model').trim(), phone: fmtPhone(fd.get('phone').trim()), place: fd.get('place').trim(), price: Number(String(fd.get('price')).replace(/\D/g, '')) || 0, cycleDays: fd.get('regular') === 'yes' ? Math.max(0, Math.round(Number(fd.get('cycleDays')) || 0)) : 0, memo: fd.get('memo').trim() };
+    const obj = { ...(id ? S.cars[id] : { createdAt: Date.now() }), plate: fd.get('plate').trim(), name: fd.get('name').trim(), model: fd.get('model').trim(), phone: fmtPhone(fd.get('phone').trim()), place: fd.get('place').trim(), price: Number(String(fd.get('price')).replace(/\D/g, '')) || 0, cycleType: fd.get('cycleType') || 'none', cycleDays: fd.get('cycleType') === 'custom' ? Math.max(0, Math.round(Number(fd.get('cycleDays')) || 0)) : (CYCLE_DAYS[fd.get('cycleType')] || 0), memo: fd.get('memo').trim() };
     const nid = id || uid();
     put('cars', nid, obj); closeSheet(); toast(id ? '수정했어요' : '고객을 등록했어요');
     if (!id) setTimeout(() => openSheet('등록 완료', `<p style="font-size:17px;margin-bottom:16px"><b>${esc(obj.plate)}</b> 차량을 등록했어요.<br>바로 세차 예약을 잡을까요?</p><button class="btn pri block" data-act="newJob" data-car="${nid}">📅 예약 잡기</button><button class="btn block" style="margin-top:8px" data-act="close">나중에</button>`), 50);
@@ -756,7 +772,7 @@ function carDetail(id) {
       <dt>차종</dt><dd>${esc(c.model || '-')}</dd>
       <dt>주차 위치</dt><dd>${esc(c.place || '-')}</dd>
       <dt>기본 금액</dt><dd>${c.price ? won(c.price) + '원' : '-'}</dd>
-      <dt>정기 세차</dt><dd>${Number(c.cycleDays) ? c.cycleDays + '일마다' : '안 함'}</dd>
+      <dt>정기 세차</dt><dd>${esc(cycleLabel(c))}</dd>
       ${c.memo ? `<dt>메모</dt><dd>${esc(c.memo)}</dd>` : ''}
       <dt>누적</dt><dd>${hist.filter(j => j.status === '완료').length}회 · ${won(total)}원</dd>
     </dl>
