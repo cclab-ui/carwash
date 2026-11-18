@@ -18,6 +18,7 @@
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#1a66e0">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#f2f5f9;--card:#fff;--line:#e3e8ef;--text:#17202b;--sub:#687587;
@@ -113,6 +114,21 @@ textarea.inp{min-height:150px;line-height:1.6;resize:vertical}
 .sumlist b{font-weight:900}
 .msgprev{white-space:pre-wrap;font-size:15px;line-height:1.6;background:var(--gray-soft);border-radius:12px;padding:12px;margin-top:8px;color:#2b3542}
 .loading{text-align:center;padding:60px 0;color:var(--sub)}
+#auth{position:fixed;inset:0;z-index:30;background:linear-gradient(160deg,#1a66e0,#18a8d8);display:none;overflow-y:auto}
+#auth.on{display:block}
+.auth-in{max-width:420px;margin:0 auto;padding:56px 22px 40px;color:#fff}
+.auth-in img{width:84px;height:84px;border-radius:22px;display:block;margin:0 auto 14px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.auth-in h1{text-align:center;font-size:32px;font-weight:900;letter-spacing:-1px}
+.auth-in .lead{text-align:center;opacity:.9;margin:6px 0 26px;font-size:15px}
+.auth-card{background:#fff;color:var(--text);border-radius:20px;padding:20px 18px}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--gray-soft);border-radius:12px;padding:4px;margin-bottom:16px}
+.auth-tabs button{padding:10px;border-radius:9px;font-weight:700;color:var(--sub)}
+.auth-tabs button.on{background:#fff;color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.auth-msg{background:var(--warn-soft);color:#8a3a07;border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:12px;line-height:1.5}
+.auth-msg.ok{background:var(--ok-soft);color:#0b6b3d}
+.admin{border:2px solid var(--pri-soft)}
+.req{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.req:last-child{border:none}
 </style>
 </head>
 <body>
@@ -127,6 +143,8 @@ textarea.inp{min-height:150px;line-height:1.6;resize:vertical}
 <button class="fab" id="fab" data-act="newJob">＋ 예약</button>
 <nav><div class="in" id="nav"></div></nav>
 <div id="layer"></div>
+<div id="auth"></div>
+<input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
 
 <script>
 /* ---------- helpers ---------- */
@@ -163,43 +181,155 @@ const DEFAULT_SETTINGS = {
 /* ---------- state & storage ---------- */
 const S = { cars: {}, jobs: {}, settings: null, tab: 'home', schedFilter: 'upcoming', custQ: '', month: today().slice(0, 7), mode: 'loading', note: '' };
 const settings = () => Object.assign({}, DEFAULT_SETTINGS, S.settings || {});
-let db = null;
-const LS = 'carwash-manager-v1';
-function lsLoad() { try { const d = JSON.parse(localStorage.getItem(LS) || '{}'); S.cars = d.cars || {}; S.jobs = d.jobs || {}; S.settings = d.settings || null; } catch (e) {} }
-function lsSave() { try { localStorage.setItem(LS, JSON.stringify({ cars: S.cars, jobs: S.jobs, settings: S.settings })); } catch (e) {} }
-function failWrite(e) { toast(e && e.code === 'quota_exceeded' ? '저장 공간이 가득 찼어요. 오래된 기록을 지워주세요.' : '저장하지 못했어요. 다시 시도해 주세요.'); }
+/* ---------- 서버 저장 (Supabase · 위스키 앱과 같은 프로젝트, carwash_ 표) ---------- */
+const SB_URL = 'https://krsspmovqxucgocfeaec.supabase.co';
+const SB_KEY = 'sb_publishable_l0Q4Pc2ucOpYBG2bKtXiDA_02xNPyTU'; // 공개용 키 (승인된 멤버만 읽고 쓰게 잠금 규칙으로 보호됨)
+const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+const TBL = { cars: 'carwash_cars', jobs: 'carwash_jobs' };
+const ME = { id: null, email: '', name: '', role: '' };
+S.meta = { lastAt: '', lastBy: '' }; S.members = []; S.requests = [];
+const cacheKey = () => 'carwash-cache-' + ME.id;
+function cacheSave() { try { localStorage.setItem(cacheKey(), JSON.stringify({ cars: S.cars, jobs: S.jobs, settings: S.settings })); } catch (e) {} }
+function failWrite(e) { console.error(e); toast('저장하지 못했어요. 인터넷 연결을 확인해 주세요.'); }
+function bumpMeta() { S.meta = { lastAt: new Date().toISOString(), lastBy: ME.id }; }
 async function put(col, id, obj) {
-  S[col][id] = obj; render();
-  if (db) { try { await db.collection(col).doc(id).set(obj); } catch (e) { failWrite(e); } } else lsSave();
+  S[col][id] = obj; bumpMeta(); cacheSave(); render();
+  const { error } = await sb.from(TBL[col]).upsert({ id, data: obj, updated_at: new Date().toISOString(), updated_by: ME.id });
+  if (error) failWrite(error);
 }
 async function remove(col, id) {
-  delete S[col][id]; render();
-  if (db) { try { await db.collection(col).doc(id).delete(); } catch (e) { failWrite(e); } } else lsSave();
+  delete S[col][id]; cacheSave(); render();
+  const { error } = await sb.from(TBL[col]).delete().eq('id', id);
+  if (error) failWrite(error);
 }
 async function saveSettings(obj) {
-  S.settings = obj; render();
-  if (db) { try { await db.doc('settings/main').set(obj); } catch (e) { failWrite(e); } } else lsSave();
+  S.settings = obj; cacheSave(); render();
+  const { error } = await sb.from('carwash_settings').upsert({ id: 'main', data: obj, updated_at: new Date().toISOString(), updated_by: ME.id });
+  if (error) failWrite(error);
+}
+async function selectAll(table) {
+  let out = [], from = 0;
+  for (;;) {
+    const { data, error } = await sb.from(table).select('id,data,updated_at,updated_by').range(from, from + 999);
+    if (error) throw error;
+    out = out.concat(data); if (data.length < 1000) return out; from += 1000;
+  }
+}
+async function loadAll(quiet) {
+  try {
+    const [cars, jobs, sets] = await Promise.all([selectAll('carwash_cars'), selectAll('carwash_jobs'), selectAll('carwash_settings')]);
+    const toObj = rows => { const o = {}; rows.forEach(r => { o[r.id] = r.data; }); return o; };
+    S.cars = toObj(cars); S.jobs = toObj(jobs);
+    const st = sets.find(r => r.id === 'main'); S.settings = st ? st.data : null;
+    const last = cars.concat(jobs).sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0];
+    S.meta = last ? { lastAt: last.updated_at, lastBy: last.updated_by } : { lastAt: '', lastBy: '' };
+    S.mode = 'db'; S.note = ''; cacheSave();
+    if (ME.role === 'admin') await loadAdmin();
+    else { const { data } = await sb.from('carwash_members').select('user_id,email,name,role'); S.members = data || []; }
+  } catch (e) { console.error(e); if (!quiet) S.note = '기록을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; }
+  render();
+}
+async function loadAdmin() {
+  const [m, r] = await Promise.all([
+    sb.from('carwash_members').select('user_id,email,name,role,created_at').order('created_at'),
+    sb.from('carwash_requests').select('user_id,email,name,created_at').order('created_at')
+  ]);
+  S.members = m.data || [];
+  const memberIds = new Set(S.members.map(x => x.user_id));
+  S.requests = (r.data || []).filter(x => !memberIds.has(x.user_id));
+}
+
+/* ---------- 로그인 ---------- */
+let authMode = 'login';
+function authScreen(msg, ok) {
+  const signup = authMode === 'signup';
+  $('#auth').innerHTML = `<div class="auth-in">
+    <img src="icon.png" alt="">
+    <h1>세차관리</h1>
+    <p class="lead">고객 · 일정 · 입금 · 문자를 한 번에</p>
+    <div class="auth-card">
+      <div class="auth-tabs"><button class="${!signup ? 'on' : ''}" id="tLogin">로그인</button><button class="${signup ? 'on' : ''}" id="tSignup">처음이에요 (가입)</button></div>
+      ${msg ? `<div class="auth-msg ${ok ? 'ok' : ''}">${msg}</div>` : ''}
+      <form id="authForm">
+        ${signup ? `<label class="f"><span>이름 (관리 화면에 보여요)</span><input class="inp" name="name" required maxlength="12" placeholder="예: 아빠"></label>` : ''}
+        <label class="f"><span>이메일</span><input class="inp" name="email" type="email" autocomplete="email" required placeholder="example@naver.com"></label>
+        <label class="f"><span>비밀번호${signup ? ' (6자 이상)' : ''}</span><input class="inp" name="pw" type="password" minlength="6" required autocomplete="${signup ? 'new-password' : 'current-password'}"></label>
+        ${signup ? '<p class="hint">⚠️ 비밀번호 찾기 기능이 없어요. 꼭 적어 두세요.</p>' : ''}
+        <button class="btn pri block" id="authBtn" type="submit">${signup ? '가입하기' : '로그인'}</button>
+      </form>
+      <p class="hint" style="margin:14px 0 0;text-align:center">한 번 로그인하면 이 폰에서는 계속 로그인돼 있어요.</p>
+    </div>
+  </div>`;
+  $('#auth').classList.add('on');
+  $('#tLogin').onclick = () => { authMode = 'login'; authScreen(); };
+  $('#tSignup').onclick = () => { authMode = 'signup'; authScreen(); };
+  $('#authForm').onsubmit = doAuth;
+}
+function errKo(e) {
+  const m = (e && e.message || '').toLowerCase();
+  if (m.includes('invalid login')) return '이메일 또는 비밀번호가 맞지 않아요.';
+  if (m.includes('already registered') || m.includes('already been registered')) return '이미 가입된 이메일이에요. 로그인해 주세요.';
+  if (m.includes('email not confirmed')) return '메일함에서 가입 확인 링크를 먼저 눌러 주세요.';
+  if (m.includes('rate limit') || m.includes('too many')) return '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.';
+  if (m.includes('password')) return '비밀번호는 6자 이상으로 해 주세요.';
+  return '문제가 생겼어요: ' + (e && e.message);
+}
+async function doAuth(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target), email = fd.get('email').trim(), password = fd.get('pw');
+  $('#authBtn').disabled = true; $('#authBtn').textContent = '잠시만요…';
+  if (authMode === 'signup') {
+    const name = fd.get('name').trim();
+    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { carwash_name: name }, emailRedirectTo: location.origin + location.pathname } });
+    if (error) return authScreen(errKo(error));
+    if (!data.session) { authMode = 'login'; return authScreen('가입 확인 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인해 주세요.', true); }
+  } else {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return authScreen(errKo(error));
+  }
+}
+function pendingScreen(msg) {
+  $('#auth').innerHTML = `<div class="auth-in">
+    <img src="icon.png" alt=""><h1>승인 기다리는 중</h1>
+    <p class="lead">${esc(ME.email)}</p>
+    <div class="auth-card">
+      ${msg ? `<div class="auth-msg">${msg}</div>` : ''}
+      <p style="line-height:1.7;margin-bottom:16px">가입은 완료됐어요! 관리자가 <b>[승인]</b>을 누르면 바로 쓸 수 있어요.<br>승인되면 아래 버튼을 눌러 주세요.</p>
+      <button class="btn pri block" id="pRecheck">승인됐는지 다시 확인</button>
+      <button class="btn block" style="margin-top:8px" id="pOut">로그아웃</button>
+    </div></div>`;
+  $('#auth').classList.add('on');
+  $('#pRecheck').onclick = () => afterLogin(true);
+  $('#pOut').onclick = () => sb.auth.signOut();
+}
+let loggedFor = null;
+async function afterLogin(force) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  const u = session.user;
+  if (!force && loggedFor === u.id) return;
+  loggedFor = u.id;
+  ME.id = u.id; ME.email = u.email || ''; ME.name = (u.user_metadata && u.user_metadata.carwash_name) || ME.email.split('@')[0];
+  const { data: mem, error } = await sb.from('carwash_members').select('role,name').eq('user_id', u.id).maybeSingle();
+  if (error) { console.error(error); return pendingScreen('서버에 연결하지 못했어요. 잠시 후 다시 확인해 주세요.'); }
+  if (!mem) {
+    await sb.from('carwash_requests').upsert({ user_id: u.id, email: ME.email, name: ME.name }, { onConflict: 'user_id', ignoreDuplicates: true });
+    return pendingScreen(force ? '아직 승인 전이에요.' : '');
+  }
+  ME.role = mem.role; if (mem.name) ME.name = mem.name;
+  $('#auth').classList.remove('on');
+  try { const c = JSON.parse(localStorage.getItem(cacheKey()) || 'null'); if (c) { S.cars = c.cars || {}; S.jobs = c.jobs || {}; S.settings = c.settings || null; S.mode = 'db'; render(); } } catch (e) {}
+  await loadAll();
 }
 
 async function init() {
   $('#todayLabel').textContent = fmtDate(today()) + ' · 오늘도 화이팅!';
-  let ns = null;
-  for (let i = 0; i < 20 && !(window.claude && window.claude.use); i++) await new Promise(r => setTimeout(r, 100));
-  try { if (window.claude && window.claude.use) ns = await window.claude.use('db'); } catch (e) {}
-  if (!ns) {
-    S.mode = 'local'; lsLoad();
-    S.note = '지금 화면에서는 이 기기(브라우저)에만 저장돼요.';
-    render(); return;
-  }
-  db = ns; S.mode = 'db';
-  const ready = { cars: false, jobs: false, settings: false };
-  const timer = setTimeout(() => { if (!ready.cars || !ready.jobs) { S.note = '데이터를 아직 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; render(); } }, 10000);
-  const mark = (k, meta) => { if (!meta.fromCache) { ready[k] = true; if (ready.cars && ready.jobs && ready.settings) { clearTimeout(timer); if (S.note.startsWith('데이터를')) S.note = ''; } } };
-  const onErr = () => { clearTimeout(timer); S.note = '데이터 연결이 끊겼어요. 페이지를 다시 열어 주세요.'; render(); };
-  const toObj = snap => { const o = {}; snap.docs.forEach(d => { o[d.id] = d.data(); }); return o; };
-  db.collection('cars').onSnapshot(s => { S.cars = toObj(s); mark('cars', s.metadata); render(); }, onErr);
-  db.collection('jobs').onSnapshot(s => { S.jobs = toObj(s); mark('jobs', s.metadata); render(); }, onErr);
-  db.doc('settings/main').onSnapshot(d => { S.settings = d.exists ? d.data() : null; mark('settings', d.metadata); render(); }, onErr);
+  if (!sb) { S.mode = 'db'; S.note = '서버에 연결하지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.'; render(); return; }
+  sb.auth.onAuthStateChange((ev, session) => {
+    if (session) setTimeout(() => afterLogin(false), 0);
+    else { loggedFor = null; ME.id = null; ME.role = ''; S.cars = {}; S.jobs = {}; S.settings = null; S.mode = 'loading'; closeSheet(); authMode = 'login'; authScreen(); }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ME.role) loadAll(true); });
 }
 
 /* ---------- derived ---------- */
@@ -385,8 +515,75 @@ function vMsg() {
     <label class="f"><span>입금 계좌 {계좌}</span><input class="inp" name="account" value="${esc(s.account)}" placeholder="예: 국민 123456-01-123456 (홍길동)"></label>
     <button class="btn pri block" type="submit">저장</button>
   </form>
-  <div class="sub" style="text-align:center;margin-top:8px">${S.mode === 'db' ? '☁️ 기록은 이 앱 링크에 안전하게 저장돼요' : '📱 이 기기에만 저장 중'}</div>
+  ${ME.role === 'admin' ? vAdmin() : ''}
+  <h2>내 계정</h2>
+  <div class="card"><div class="row between"><div><b>${esc(ME.name)}</b>${ME.role === 'admin' ? ' <span class="badge b-blue">관리자</span>' : ''}<div class="sub">${esc(ME.email)}</div></div>
+  <button class="btn sm" data-act="logout">로그아웃</button></div></div>
+  <div class="sub" style="text-align:center;margin:10px 0">☁️ 기록은 서버에 저장돼서 어느 폰에서 열어도 같아요</div>
   `;
+}
+const memberName = id => { const m = S.members.find(x => x.user_id === id); return m ? (m.name || m.email) : ''; };
+function fmtDT(iso) { if (!iso) return '-'; const d = new Date(iso); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function vAdmin() {
+  const s = settings();
+  const lb = s.lastBackupAt;
+  const lbDays = lb ? diffDays(lb.slice(0, 10), today()) : null;
+  return `<h2>관리 <small>관리자만 보여요</small></h2>
+  <div class="card admin">
+    ${S.requests.length ? `<div style="margin-bottom:12px"><b style="color:var(--warn)">🔔 승인 대기 ${S.requests.length}명</b>
+      ${S.requests.map(r => `<div class="req"><div><b>${esc(r.name || '')}</b><div class="sub">${esc(r.email || '')}</div></div>
+      <div class="row"><button class="btn ok sm" data-act="approve" data-id="${r.user_id}">승인</button><button class="btn sm" data-act="reject" data-id="${r.user_id}">거절</button></div></div>`).join('')}</div>` : ''}
+    <div class="sumlist" style="margin:0 0 12px;background:var(--bg)">
+      <div><span>마지막 입력</span><b>${S.meta.lastAt ? esc(fmtDT(S.meta.lastAt)) : '-'}${S.meta.lastBy ? `<span class="sub"> · ${esc(memberName(S.meta.lastBy))}</span>` : ''}</b></div>
+      <div><span>고객 / 세차 기록</span><b>${carsArr().length}명 / ${jobsArr().length}건</b></div>
+      <div><span>마지막 백업</span><b style="color:${lbDays == null || lbDays > 30 ? 'var(--warn)' : 'inherit'}">${lb ? esc(fmtDT(lb)) + (lbDays > 30 ? ' (한 달 넘음)' : '') : '아직 없음'}</b></div>
+    </div>
+    <div class="two"><button class="btn pri block" data-act="backup">⬇️ 백업 받기</button><button class="btn block" data-act="restore">⬆️ 백업 불러오기</button></div>
+    <button class="btn block" style="margin-top:8px" data-act="refresh">🔄 새로고침</button>
+    <div style="margin-top:14px"><b>사용 중인 계정</b>
+      ${S.members.map(m => `<div class="req"><div><b>${esc(m.name || '')}</b> ${m.role === 'admin' ? '<span class="badge b-blue">관리자</span>' : ''}<div class="sub">${esc(m.email || '')}</div></div>
+      ${m.user_id === ME.id ? '<span class="sub">나</span>' : `<button class="btn red sm" data-act="kick" data-id="${m.user_id}">내보내기</button>`}</div>`).join('')}
+    </div>
+  </div>`;
+}
+async function approve(id) {
+  const r = S.requests.find(x => x.user_id === id); if (!r) return;
+  const { error } = await sb.from('carwash_members').insert({ user_id: id, email: r.email, name: r.name, role: 'member' });
+  if (error) return failWrite(error);
+  await sb.from('carwash_requests').delete().eq('user_id', id);
+  toast(`${r.name || r.email} 님을 승인했어요`); await loadAdmin(); render();
+}
+async function reject(id) {
+  const { error } = await sb.from('carwash_requests').delete().eq('user_id', id);
+  if (error) return failWrite(error);
+  toast('거절했어요'); await loadAdmin(); render();
+}
+async function kick(id) {
+  const { error } = await sb.from('carwash_members').delete().eq('user_id', id);
+  if (error) return failWrite(error);
+  toast('내보냈어요'); await loadAdmin(); render();
+}
+function doBackup() {
+  const data = { app: 'carwash', version: 1, exportedAt: new Date().toISOString(), cars: S.cars, jobs: S.jobs, settings: S.settings };
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `세차관리_백업_${today()}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  saveSettings({ ...settings(), lastBackupAt: new Date().toISOString() });
+  toast('백업 파일을 저장했어요');
+}
+async function doRestore(file) {
+  let d; try { d = JSON.parse(await file.text()); } catch (e) { return toast('백업 파일을 읽지 못했어요'); }
+  if (!d || d.app !== 'carwash') return toast('세차관리 백업 파일이 아니에요');
+  const nc = Object.keys(d.cars || {}).length, nj = Object.keys(d.jobs || {}).length;
+  confirmSheet(`백업(${esc(fmtDT(d.exportedAt))})에서 고객 ${nc}명, 세차 기록 ${nj}건을 불러올까요?<br><span class="sub">같은 기록은 백업 내용으로 덮어쓰고, 지금 있는 다른 기록은 그대로 둬요.</span>`, '불러오기', async () => {
+    const now = new Date().toISOString();
+    const rowsC = Object.entries(d.cars || {}).map(([id, data]) => ({ id, data, updated_at: now, updated_by: ME.id }));
+    const rowsJ = Object.entries(d.jobs || {}).map(([id, data]) => ({ id, data, updated_at: now, updated_by: ME.id }));
+    for (let i = 0; i < rowsC.length; i += 500) { const { error } = await sb.from('carwash_cars').upsert(rowsC.slice(i, i + 500)); if (error) return failWrite(error); }
+    for (let i = 0; i < rowsJ.length; i += 500) { const { error } = await sb.from('carwash_jobs').upsert(rowsJ.slice(i, i + 500)); if (error) return failWrite(error); }
+    if (d.settings) await sb.from('carwash_settings').upsert({ id: 'main', data: { ...d.settings, lastBackupAt: settings().lastBackupAt || d.settings.lastBackupAt }, updated_at: now, updated_by: ME.id });
+    toast('백업을 불러왔어요'); await loadAll();
+  });
 }
 
 /* ---------- sheets ---------- */
@@ -627,6 +824,13 @@ const ACT = {
   bulkRemind: () => bulkSheet('remind'),
   bulkUnpaid: () => bulkSheet('unpaid'),
   editTpl: d => tplForm(d.id || null),
+  approve: d => approve(d.id),
+  reject: d => reject(d.id),
+  kick: d => { const m = S.members.find(x => x.user_id === d.id); confirmSheet(`<b>${esc(m ? m.name || m.email : '')}</b> 님을 내보낼까요?<br><span class="sub">더 이상 기록을 볼 수 없게 돼요. 기록은 지워지지 않아요.</span>`, '내보내기', () => kick(d.id)); },
+  backup: () => doBackup(),
+  restore: () => { const f = $('#restoreFile'); f.value = ''; f.click(); },
+  refresh: async () => { await loadAll(); toast('최신 기록을 불러왔어요'); },
+  logout: () => confirmSheet('로그아웃할까요?<br><span class="sub">다시 쓰려면 이메일과 비밀번호를 입력해야 해요.</span>', '로그아웃', () => { try { localStorage.removeItem(cacheKey()); } catch (e) {} sb.auth.signOut(); }),
   close: () => closeSheet(),
   closeBg: (d, el, e) => { if (e.target === el) closeSheet(); }
 };
@@ -640,6 +844,7 @@ document.addEventListener('input', e => { if (e.target.id === 'custQ') { S.custQ
 document.addEventListener('submit', e => {
   if (e.target.id === 'setForm') { e.preventDefault(); const fd = new FormData(e.target); saveSettings({ ...settings(), bizName: fd.get('bizName').trim() || '출장세차', phone: fmtPhone(fd.get('phone').trim()), account: fd.get('account').trim() }); toast('저장했어요'); }
 });
+$('#restoreFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) doRestore(f); });
 init();
 </script>
 </body>
