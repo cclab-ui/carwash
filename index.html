@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>세차관리</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+:root{
+  --bg:#f2f5f9;--card:#fff;--line:#e3e8ef;--text:#17202b;--sub:#687587;
+  --pri:#1a66e0;--pri-soft:#e7f0ff;--ok:#0f9d58;--ok-soft:#e3f6ec;
+  --warn:#e8590c;--warn-soft:#fff0e6;--red:#d93025;--red-soft:#fdeceb;--gray-soft:#eef1f5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',system-ui,sans-serif;font-size:17px;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+.app{max-width:560px;margin:0 auto;min-height:100vh;padding-bottom:96px}
+header{position:sticky;top:0;z-index:5;background:linear-gradient(135deg,#1a66e0,#1597c9);color:#fff;padding:18px 18px 16px}
+header .biz{font-size:22px;font-weight:900;letter-spacing:-.5px;display:flex;align-items:center;gap:8px}
+header .date{font-size:14px;opacity:.85;margin-top:2px}
+.note{background:var(--warn-soft);color:#8a3a07;font-size:14px;padding:10px 16px;line-height:1.5}
+main{padding:16px}
+h2{font-size:18px;font-weight:700;margin:22px 2px 10px;display:flex;align-items:center;justify-content:space-between}
+h2:first-child{margin-top:4px}
+h2 small{font-size:14px;color:var(--sub);font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--card);border-radius:16px;padding:14px 12px;border:1px solid var(--line)}
+.stat b{display:block;font-size:21px;font-weight:900;letter-spacing:-.5px;margin-top:4px}
+.stat span{font-size:13px;color:var(--sub)}
+.stat.warn b{color:var(--warn)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:10px}
+.card.tap{cursor:pointer}
+.row{display:flex;align-items:center;gap:8px}
+.between{justify-content:space-between}
+.wrap{flex-wrap:wrap}
+.plate{font-size:20px;font-weight:900;letter-spacing:-.3px}
+.sub{color:var(--sub);font-size:14px}
+.time{font-weight:700;color:var(--pri);font-size:16px;min-width:52px}
+.price{font-weight:700}
+.badge{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.b-blue{background:var(--pri-soft);color:var(--pri)}
+.b-ok{background:var(--ok-soft);color:var(--ok)}
+.b-warn{background:var(--warn-soft);color:var(--warn)}
+.b-gray{background:var(--gray-soft);color:var(--sub)}
+.b-red{background:var(--red-soft);color:var(--red)}
+.actions{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.btn{padding:10px 14px;border-radius:12px;font-weight:700;font-size:15px;background:var(--gray-soft);color:var(--text);display:inline-flex;align-items:center;gap:5px;text-decoration:none}
+.btn.pri{background:var(--pri);color:#fff}
+.btn.ok{background:var(--ok);color:#fff}
+.btn.soft{background:var(--pri-soft);color:var(--pri)}
+.btn.red{background:var(--red-soft);color:var(--red)}
+.btn.block{width:100%;justify-content:center;padding:15px;font-size:17px;border-radius:14px}
+.btn.sm{padding:7px 11px;font-size:14px;border-radius:10px}
+.empty{text-align:center;color:var(--sub);padding:22px 10px;font-size:15px;background:var(--card);border:1px dashed var(--line);border-radius:16px;margin-bottom:10px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px}
+.chip{padding:8px 14px;border-radius:99px;background:var(--card);border:1px solid var(--line);font-size:15px;font-weight:500;white-space:nowrap}
+.chip.on{background:var(--text);border-color:var(--text);color:#fff}
+.search{width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:17px;margin-bottom:12px}
+.dayhead{font-size:15px;font-weight:700;color:var(--sub);margin:16px 4px 8px}
+.dayhead.today{color:var(--pri)}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:6;background:#fff;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav button{padding:9px 0 11px;font-size:12.5px;color:var(--sub);display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:500}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--pri);font-weight:700}
+.fab{position:fixed;right:max(16px,calc(50% - 264px));bottom:86px;z-index:6;background:var(--pri);color:#fff;border-radius:99px;padding:15px 20px;font-weight:700;font-size:16px;box-shadow:0 6px 18px rgba(26,102,224,.35)}
+/* sheet */
+.ov{position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center;animation:fd .15s}
+.sheet{background:#fff;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:8px 18px 28px;animation:up .2s ease-out}
+.sheet .grab{width:44px;height:5px;border-radius:9px;background:#d6dce4;margin:4px auto 12px}
+.sheet h3{font-size:20px;font-weight:900;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.x{font-size:26px;color:var(--sub);line-height:1;padding:4px 8px}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes fd{from{opacity:0}to{opacity:1}}
+label.f{display:block;margin-bottom:14px}
+label.f>span{display:block;font-size:14px;font-weight:700;color:var(--sub);margin-bottom:6px}
+.inp{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:#fbfcfe;font-size:17px}
+.inp:focus{outline:2px solid var(--pri);border-color:transparent;background:#fff}
+textarea.inp{min-height:150px;line-height:1.6;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{flex:1;min-width:70px}
+.seg input{display:none}
+.seg span{display:block;text-align:center;padding:11px 6px;border-radius:12px;border:1px solid var(--line);font-weight:500;font-size:15px;background:#fbfcfe}
+.seg input:checked+span{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:700}
+.check{display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:12px;background:var(--gray-soft);margin-bottom:14px;font-weight:700}
+.check input{width:22px;height:22px;accent-color:var(--ok)}
+.hint{font-size:13.5px;color:var(--sub);line-height:1.55;margin:-6px 0 14px}
+.vars{display:flex;flex-wrap:wrap;gap:5px;margin:-4px 0 14px}
+.vars button{font-size:13px;padding:5px 9px;border-radius:8px;background:var(--pri-soft);color:var(--pri);font-weight:500}
+.info{display:grid;grid-template-columns:84px 1fr;gap:8px 10px;font-size:16px;margin-bottom:14px}
+.info dt{color:var(--sub);font-size:14px;padding-top:2px}
+.toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);background:#17202b;color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;z-index:40;animation:fd .2s;max-width:90vw;text-align:center}
+.monthnav{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px;font-size:19px;font-weight:900}
+.monthnav button{font-size:22px;padding:4px 12px;color:var(--sub)}
+.sumlist{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:6px 16px;margin-bottom:10px}
+.sumlist div{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:16px}
+.sumlist div:last-child{border:none}
+.sumlist b{font-weight:900}
+.msgprev{white-space:pre-wrap;font-size:15px;line-height:1.6;background:var(--gray-soft);border-radius:12px;padding:12px;margin-top:8px;color:#2b3542}
+.loading{text-align:center;padding:60px 0;color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="biz" id="bizName">🚗 세차관리</div>
+    <div class="date" id="todayLabel"></div>
+  </header>
+  <div id="note"></div>
+  <main id="main"><div class="loading">불러오는 중…</div></main>
+</div>
+<button class="fab" id="fab" data-act="newJob">＋ 예약</button>
+<nav><div class="in" id="nav"></div></nav>
+<div id="layer"></div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const today = () => ymd(new Date());
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return ymd(d); };
+const DOW = '일월화수목금토';
+const fmtDate = s => { if (!s) return ''; const d = new Date(s + 'T00:00:00'); return `${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]})`; };
+const won = n => (Number(n) || 0).toLocaleString('ko-KR');
+const diffDays = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5);
+const fmtPhone = p => { const d = String(p || '').replace(/\D/g, ''); if (d.length === 11) return d.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3'); if (d.length === 10) return d.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3'); return p || ''; };
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
+
+const TYPES = ['외부', '내부', '내외부', '기타'];
+const METHODS = ['계좌이체', '현금', '카드'];
+const VARS = ['고객명','차량번호','차종','날짜','시간','세차종류','금액','계좌','상호','연락처','주차위치','최근세차일','경과일'];
+const DEFAULT_SETTINGS = {
+  bizName: '출장세차', phone: '', account: '',
+  templates: [
+    { id: 't1', name: '예약 안내', body: '[{상호}] 안녕하세요 {고객명}님!\n{차량번호} 차량 {세차종류} 세차가 {날짜} {시간}에 예약되었습니다.\n금액은 {금액}원입니다. 감사합니다 :)' },
+    { id: 't2', name: '전날 알림', body: '[{상호}] {고객명}님, 내일 {날짜} {시간}에 {차량번호} 차량 세차 예정입니다.\n차량 위치: {주차위치}\n일정 변경이 필요하시면 편하게 연락 주세요.' },
+    { id: 't3', name: '세차 완료', body: '[{상호}] {고객명}님, {차량번호} 차량 {세차종류} 세차 깨끗하게 완료했습니다!\n이용 금액 {금액}원은 아래 계좌로 입금 부탁드립니다.\n{계좌}\n감사합니다.' },
+    { id: 't4', name: '입금 요청', body: '[{상호}] {고객명}님, {날짜} 세차 금액 {금액}원이 아직 확인되지 않아 안내드립니다.\n입금 계좌: {계좌}\n이미 입금하셨다면 양해 부탁드립니다.' },
+    { id: 't5', name: '입금 확인', body: '[{상호}] {고객명}님, {금액}원 입금 확인되었습니다.\n늘 맡겨주셔서 감사합니다. 다음에도 깨끗하게 관리해드릴게요!' },
+    { id: 't6', name: '정기세차 안내', body: '[{상호}] {고객명}님, 마지막 세차({최근세차일}) 후 {경과일}일이 지났어요.\n이번 주 세차 일정 잡아드릴까요?' }
+  ]
+};
+
+/* ---------- state & storage ---------- */
+const S = { cars: {}, jobs: {}, settings: null, tab: 'home', schedFilter: 'upcoming', custQ: '', month: today().slice(0, 7), mode: 'loading', note: '' };
+const settings = () => Object.assign({}, DEFAULT_SETTINGS, S.settings || {});
+let db = null;
+const LS = 'carwash-manager-v1';
+function lsLoad() { try { const d = JSON.parse(localStorage.getItem(LS) || '{}'); S.cars = d.cars || {}; S.jobs = d.jobs || {}; S.settings = d.settings || null; } catch (e) {} }
+function lsSave() { try { localStorage.setItem(LS, JSON.stringify({ cars: S.cars, jobs: S.jobs, settings: S.settings })); } catch (e) {} }
+function failWrite(e) { toast(e && e.code === 'quota_exceeded' ? '저장 공간이 가득 찼어요. 오래된 기록을 지워주세요.' : '저장하지 못했어요. 다시 시도해 주세요.'); }
+async function put(col, id, obj) {
+  S[col][id] = obj; render();
+  if (db) { try { await db.collection(col).doc(id).set(obj); } catch (e) { failWrite(e); } } else lsSave();
+}
+async function remove(col, id) {
+  delete S[col][id]; render();
+  if (db) { try { await db.collection(col).doc(id).delete(); } catch (e) { failWrite(e); } } else lsSave();
+}
+async function saveSettings(obj) {
+  S.settings = obj; render();
+  if (db) { try { await db.doc('settings/main').set(obj); } catch (e) { failWrite(e); } } else lsSave();
+}
+
+async function init() {
+  $('#todayLabel').textContent = fmtDate(today()) + ' · 오늘도 화이팅!';
+  let ns = null;
+  for (let i = 0; i < 20 && !(window.claude && window.claude.use); i++) await new Promise(r => setTimeout(r, 100));
+  try { if (window.claude && window.claude.use) ns = await window.claude.use('db'); } catch (e) {}
+  if (!ns) {
+    S.mode = 'local'; lsLoad();
+    S.note = '지금 화면에서는 이 기기(브라우저)에만 저장돼요.';
+    render(); return;
+  }
+  db = ns; S.mode = 'db';
+  const ready = { cars: false, jobs: false, settings: false };
+  const timer = setTimeout(() => { if (!ready.cars || !ready.jobs) { S.note = '데이터를 아직 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; render(); } }, 10000);
+  const mark = (k, meta) => { if (!meta.fromCache) { ready[k] = true; if (ready.cars && ready.jobs && ready.settings) { clearTimeout(timer); if (S.note.startsWith('데이터를')) S.note = ''; } } };
+  const onErr = () => { clearTimeout(timer); S.note = '데이터 연결이 끊겼어요. 페이지를 다시 열어 주세요.'; render(); };
+  const toObj = snap => { const o = {}; snap.docs.forEach(d => { o[d.id] = d.data(); }); return o; };
+  db.collection('cars').onSnapshot(s => { S.cars = toObj(s); mark('cars', s.metadata); render(); }, onErr);
+  db.collection('jobs').onSnapshot(s => { S.jobs = toObj(s); mark('jobs', s.metadata); render(); }, onErr);
+  db.doc('settings/main').onSnapshot(d => { S.settings = d.exists ? d.data() : null; mark('settings', d.metadata); render(); }, onErr);
+}
+
+/* ---------- derived ---------- */
+const jobsArr = () => Object.entries(S.jobs).map(([id, j]) => ({ ...j, id }));
+const carsArr = () => Object.entries(S.cars).map(([id, c]) => ({ ...c, id }));
+const sortJobs = (a, b) => (a.date + (a.time || '99:99')).localeCompare(b.date + (b.time || '99:99'));
+const carOf = j => S.cars[j.carId] ? { ...S.cars[j.carId], id: j.carId } : null;
+const lastWash = carId => jobsArr().filter(j => j.carId === carId && j.status === '완료').map(j => j.date).sort().pop() || '';
+const nextJob = carId => jobsArr().filter(j => j.carId === carId && j.status === '예정' && j.date >= today()).sort(sortJobs)[0];
+const unpaidJobs = () => jobsArr().filter(j => j.status === '완료' && !j.paid).sort(sortJobs);
+function dueCars() {
+  const t = today();
+  return carsArr().filter(c => Number(c.cycleDays) > 0).map(c => {
+    const lw = lastWash(c.id); if (!lw || nextJob(c.id)) return null;
+    const due = addDays(lw, Number(c.cycleDays));
+    return due <= addDays(t, 2) ? { ...c, lw, due } : null;
+  }).filter(Boolean).sort((a, b) => a.due.localeCompare(b.due));
+}
+
+/* ---------- render ---------- */
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  sched: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  cust: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14l-1.5-6.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5z"/><circle cx="7.5" cy="17.5" r="1.8"/><circle cx="16.5" cy="17.5" r="1.8"/></svg>',
+  money: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.6"/><path d="M6 10v5M18 10v5"/></svg>',
+  msg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>'
+};
+const TABS = [['home','홈'],['sched','일정'],['cust','고객'],['money','정산'],['msg','문자·설정']];
+
+function render() {
+  const s = settings();
+  $('#bizName').textContent = '🚗 ' + (s.bizName || '세차관리');
+  $('#note').innerHTML = S.note ? `<div class="note">${esc(S.note)}</div>` : '';
+  $('#nav').innerHTML = TABS.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-k="${k}">${ICONS[k]}${l}</button>`).join('');
+  $('#fab').style.display = (S.tab === 'cust' ? '' : (S.tab === 'msg' ? 'none' : ''));
+  $('#fab').textContent = S.tab === 'cust' ? '＋ 고객 등록' : '＋ 예약';
+  $('#fab').dataset.act = S.tab === 'cust' ? 'newCar' : 'newJob';
+  if (S.mode === 'loading') { $('#main').innerHTML = '<div class="loading">불러오는 중…</div>'; return; }
+  const scrollY = window.scrollY;
+  const focusId = document.activeElement && document.activeElement.id;
+  $('#main').innerHTML = ({ home: vHome, sched: vSched, cust: vCust, money: vMoney, msg: vMsg })[S.tab]();
+  if (focusId === 'custQ') { const el = $('#custQ'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  window.scrollTo(0, scrollY);
+}
+
+function jobCard(j, opts = {}) {
+  const c = carOf(j) || { plate: '(삭제된 차량)', name: '' };
+  const st = j.status === '완료' ? '<span class="badge b-ok">완료</span>' : j.status === '취소' ? '<span class="badge b-gray">취소</span>' : '<span class="badge b-blue">예정</span>';
+  const pay = j.status === '취소' ? '' : j.paid ? `<span class="badge b-ok">입금 ${esc(fmtDate(j.paidDate).replace(/\(.\)/, ''))}</span>` : (j.status === '완료' ? '<span class="badge b-warn">미입금</span>' : '');
+  const btns = [];
+  if (j.status === '예정') btns.push(`<button class="btn ok sm" data-act="complete" data-id="${j.id}">✓ 세차 완료</button>`);
+  if (j.status === '완료' && !j.paid) btns.push(`<button class="btn soft sm" data-act="pay" data-id="${j.id}">💰 입금 확인</button>`);
+  btns.push(`<button class="btn sm" data-act="msgJob" data-id="${j.id}">💬 문자</button>`);
+  btns.push(`<button class="btn sm" data-act="editJob" data-id="${j.id}">수정</button>`);
+  return `<div class="card">
+    <div class="row between">
+      <div class="row">${opts.showDate ? `<span class="time">${esc(fmtDate(j.date))}</span>` : `<span class="time">${esc(j.time || '시간 미정')}</span>`}</div>
+      <div class="row">${st}${pay}</div>
+    </div>
+    <div class="row between" style="margin-top:6px">
+      <div><div class="plate">${esc(c.plate)}</div><div class="sub">${esc(c.name || '')}${c.model ? ' · ' + esc(c.model) : ''}${opts.showDate && j.time ? ' · ' + esc(j.time) : ''}</div></div>
+      <div style="text-align:right"><div class="price">${won(j.price)}원</div><div class="sub">${esc(j.type || '')}</div></div>
+    </div>
+    ${j.memo ? `<div class="sub" style="margin-top:6px">📝 ${esc(j.memo)}</div>` : ''}
+    <div class="actions">${btns.join('')}</div>
+  </div>`;
+}
+
+function vHome() {
+  const t = today(), tm = addDays(t, 1), m = t.slice(0, 7);
+  const all = jobsArr();
+  const todayJobs = all.filter(j => j.date === t && j.status !== '취소').sort(sortJobs);
+  const tmrJobs = all.filter(j => j.date === tm && j.status !== '취소').sort(sortJobs);
+  const monthSales = all.filter(j => j.status === '완료' && j.date.startsWith(m)).reduce((a, j) => a + (+j.price || 0), 0);
+  const unpaid = unpaidJobs();
+  const unpaidSum = unpaid.reduce((a, j) => a + (+j.price || 0), 0);
+  const due = dueCars();
+  if (!carsArr().length) {
+    return `<div class="card" style="padding:24px 18px;text-align:center">
+      <div style="font-size:40px">🧽</div>
+      <div style="font-size:19px;font-weight:900;margin:8px 0 6px">세차관리 시작하기</div>
+      <div class="sub" style="line-height:1.6;margin-bottom:16px">먼저 고객 차량을 등록하고,<br>세차 예약을 잡아보세요.</div>
+      <button class="btn pri block" data-act="newCar">＋ 첫 고객(차량) 등록</button>
+      <button class="btn block" style="margin-top:8px" data-act="tab" data-k="msg">상호·계좌 먼저 설정하기</button>
+    </div>`;
+  }
+  return `
+  <div class="stats">
+    <div class="stat"><span>오늘 세차</span><b>${todayJobs.length}건</b></div>
+    <div class="stat"><span>이번 달 매출</span><b>${won(monthSales)}</b></div>
+    <div class="stat ${unpaidSum ? 'warn' : ''}"><span>미입금</span><b>${won(unpaidSum)}</b></div>
+  </div>
+  <h2>오늘 일정 <small>${esc(fmtDate(t))}</small></h2>
+  ${todayJobs.length ? todayJobs.map(j => jobCard(j)).join('') : '<div class="empty">오늘 예정된 세차가 없어요</div>'}
+  <h2>내일 일정 <small>${esc(fmtDate(tm))}</small></h2>
+  ${tmrJobs.length ? `<button class="btn soft block" style="margin-bottom:10px" data-act="bulkRemind">💬 내일 예약자 ${tmrJobs.length}명에게 알림 문자</button>` + tmrJobs.map(j => jobCard(j)).join('') : '<div class="empty">내일 예정된 세차가 없어요</div>'}
+  ${due.length ? `<h2>세차할 때 된 정기 고객 <small>${due.length}명</small></h2>` + due.map(c => `
+    <div class="card"><div class="row between">
+      <div><div class="plate">${esc(c.plate)}</div><div class="sub">${esc(c.name || '')} · 마지막 ${esc(fmtDate(c.lw))} · ${c.cycleDays}일 주기</div></div>
+      <span class="badge ${c.due < t ? 'b-red' : 'b-warn'}">${c.due < t ? diffDays(c.due, t) + '일 지남' : c.due === t ? '오늘' : esc(fmtDate(c.due))}</span>
+    </div><div class="actions">
+      <button class="btn pri sm" data-act="newJob" data-car="${c.id}" data-date="${c.due < t ? t : c.due}">예약 잡기</button>
+      <button class="btn sm" data-act="msgCar" data-id="${c.id}" data-tpl="t6">💬 안내 문자</button>
+    </div></div>`).join('') : ''}
+  ${unpaid.length ? `<h2>미입금 <small>${unpaid.length}건 · ${won(unpaidSum)}원</small></h2>` + unpaid.slice(0, 5).map(j => jobCard(j, { showDate: true })).join('') + (unpaid.length > 5 ? `<button class="btn block" data-act="tab" data-k="money">미입금 전체 보기</button>` : '') : ''}
+  `;
+}
+
+function vSched() {
+  const t = today();
+  let list = jobsArr();
+  if (S.schedFilter === 'upcoming') list = list.filter(j => j.date >= t && j.status === '예정');
+  if (S.schedFilter === 'past') list = list.filter(j => j.date < t || j.status !== '예정');
+  list.sort(sortJobs); if (S.schedFilter !== 'upcoming') list.reverse();
+  const chips = [['upcoming', '다가오는 일정'], ['past', '지난 일정·완료'], ['all', '전체']].map(([k, l]) => `<button class="chip ${S.schedFilter === k ? 'on' : ''}" data-act="schedFilter" data-k="${k}">${l}</button>`).join('');
+  if (!list.length) return `<div class="chips">${chips}</div><div class="empty">일정이 없어요.<br>아래 ＋ 예약 버튼으로 추가하세요.</div>`;
+  let html = `<div class="chips">${chips}</div>`, last = '';
+  list.forEach(j => {
+    if (j.date !== last) { last = j.date; const dd = diffDays(t, j.date); html += `<div class="dayhead ${j.date === t ? 'today' : ''}">${esc(fmtDate(j.date))}${dd === 0 ? ' · 오늘' : dd === 1 ? ' · 내일' : dd > 1 && dd < 8 ? ` · ${dd}일 후` : ''}</div>`; }
+    html += jobCard(j);
+  });
+  return html;
+}
+
+function vCust() {
+  const q = S.custQ.trim().replace(/\s/g, '').toLowerCase();
+  let list = carsArr();
+  if (q) list = list.filter(c => [c.plate, c.name, c.phone, c.model, c.place].some(v => String(v || '').replace(/[\s-]/g, '').toLowerCase().includes(q.replace(/-/g, ''))));
+  list.sort((a, b) => (a.plate || '').localeCompare(b.plate || '', 'ko'));
+  const unpaidBy = {}; unpaidJobs().forEach(j => { unpaidBy[j.carId] = (unpaidBy[j.carId] || 0) + 1; });
+  return `<input class="search" id="custQ" placeholder="🔍 차량번호 뒷자리, 이름, 전화번호" value="${esc(S.custQ)}" inputmode="search">
+  <div class="sub" style="margin:0 4px 10px">고객 ${carsArr().length}명${q ? ` · 검색 결과 ${list.length}명` : ''}</div>
+  ${list.length ? list.map(c => {
+    const lw = lastWash(c.id), nj = nextJob(c.id);
+    return `<div class="card tap" data-act="carDetail" data-id="${c.id}">
+      <div class="row between"><div class="plate">${esc(c.plate)}</div>
+      <div class="row">${unpaidBy[c.id] ? `<span class="badge b-warn">미입금 ${unpaidBy[c.id]}</span>` : ''}${Number(c.cycleDays) > 0 ? `<span class="badge b-blue">${c.cycleDays}일 정기</span>` : ''}</div></div>
+      <div class="sub" style="margin-top:3px">${esc(c.name || '이름 없음')} · ${esc(fmtPhone(c.phone)) || '연락처 없음'}${c.model ? ' · ' + esc(c.model) : ''}</div>
+      <div class="sub" style="margin-top:3px">${nj ? `📅 다음 ${esc(fmtDate(nj.date))} ${esc(nj.time || '')}` : lw ? `마지막 세차 ${esc(fmtDate(lw))}` : '세차 기록 없음'}</div>
+    </div>`; }).join('') : `<div class="empty">${q ? '검색 결과가 없어요' : '등록된 고객이 없어요'}</div>`}`;
+}
+
+function vMoney() {
+  const m = S.month, [y, mo] = m.split('-').map(Number);
+  const all = jobsArr();
+  const done = all.filter(j => j.status === '완료' && j.date.startsWith(m));
+  const total = done.reduce((a, j) => a + (+j.price || 0), 0);
+  const paidIn = all.filter(j => j.paid && (j.paidDate || '').startsWith(m)).sort((a, b) => (b.paidDate || '').localeCompare(a.paidDate || ''));
+  const paidSum = paidIn.reduce((a, j) => a + (+j.paidAmount || +j.price || 0), 0);
+  const unpaidM = done.filter(j => !j.paid).reduce((a, j) => a + (+j.price || 0), 0);
+  const byMethod = {}; paidIn.forEach(j => { const k = j.payMethod || '기타'; byMethod[k] = (byMethod[k] || 0) + (+j.paidAmount || +j.price || 0); });
+  const unpaid = unpaidJobs();
+  return `
+  <div class="monthnav"><button data-act="month" data-d="-1">◀</button>${y}년 ${mo}월<button data-act="month" data-d="1">▶</button></div>
+  <div class="sumlist">
+    <div><span>세차 완료</span><b>${done.length}건</b></div>
+    <div><span>세차 금액 합계</span><b>${won(total)}원</b></div>
+    <div><span>이번 달 들어온 돈</span><b style="color:var(--ok)">${won(paidSum)}원</b></div>
+    ${Object.entries(byMethod).map(([k, v]) => `<div><span class="sub">　└ ${esc(k)}</span><span>${won(v)}원</span></div>`).join('')}
+    <div><span>이번 달 세차 중 미입금</span><b style="color:var(--warn)">${won(unpaidM)}원</b></div>
+  </div>
+  <h2>미입금 전체 <small>${unpaid.length}건 · ${won(unpaid.reduce((a, j) => a + (+j.price || 0), 0))}원</small></h2>
+  ${unpaid.length ? unpaid.map(j => jobCard(j, { showDate: true })).join('') : '<div class="empty">미입금이 없어요 👍</div>'}
+  <h2>${mo}월 입금 내역 <small>${paidIn.length}건</small></h2>
+  ${paidIn.length ? `<div class="sumlist">${paidIn.map(j => { const c = carOf(j) || {}; return `<div><span>${esc(fmtDate(j.paidDate))} · <b>${esc(c.plate || '')}</b> ${esc(c.name || '')}<br><span class="sub">${esc(j.payMethod || '')} · ${esc(fmtDate(j.date))} 세차</span></span><b>${won(j.paidAmount || j.price)}원</b></div>`; }).join('')}</div>` : '<div class="empty">이번 달 입금 기록이 없어요</div>'}
+  `;
+}
+
+function vMsg() {
+  const s = settings(), tm = addDays(today(), 1);
+  const tmr = jobsArr().filter(j => j.date === tm && j.status === '예정').length;
+  return `
+  <h2>빠른 문자</h2>
+  <button class="btn soft block" data-act="bulkRemind">💬 내일 예약자 알림 (${tmr}명)</button>
+  <button class="btn soft block" style="margin-top:8px" data-act="bulkUnpaid">💰 미입금 고객 입금 요청 (${unpaidJobs().length}건)</button>
+  <h2>문자 양식 <small>눌러서 수정</small></h2>
+  ${s.templates.map(t => `<div class="card tap" data-act="editTpl" data-id="${t.id}"><div class="row between"><b>${esc(t.name)}</b><span class="sub">수정 ›</span></div><div class="msgprev">${esc(t.body)}</div></div>`).join('')}
+  <button class="btn block" data-act="editTpl" data-id="">＋ 새 문자 양식 추가</button>
+  <h2>기본 정보</h2>
+  <form class="card" id="setForm">
+    <label class="f"><span>상호명 (문자에 {상호}로 들어가요)</span><input class="inp" name="bizName" value="${esc(s.bizName)}" placeholder="예: 깔끔출장세차"></label>
+    <label class="f"><span>사장님 연락처 {연락처}</span><input class="inp" name="phone" value="${esc(s.phone)}" placeholder="010-0000-0000" inputmode="tel"></label>
+    <label class="f"><span>입금 계좌 {계좌}</span><input class="inp" name="account" value="${esc(s.account)}" placeholder="예: 국민 123456-01-123456 (홍길동)"></label>
+    <button class="btn pri block" type="submit">저장</button>
+  </form>
+  <div class="sub" style="text-align:center;margin-top:8px">${S.mode === 'db' ? '☁️ 기록은 이 앱 링크에 안전하게 저장돼요' : '📱 이 기기에만 저장 중'}</div>
+  `;
+}
+
+/* ---------- sheets ---------- */
+function openSheet(title, body) {
+  $('#layer').innerHTML = `<div class="ov" data-act="closeBg"><div class="sheet"><div class="grab"></div><h3>${title}<button class="x" data-act="close">×</button></h3>${body}</div></div>`;
+  document.body.style.overflow = 'hidden';
+}
+function closeSheet() { $('#layer').innerHTML = ''; document.body.style.overflow = ''; }
+function confirmSheet(msg, okLabel, fn) {
+  openSheet('확인', `<p style="font-size:17px;line-height:1.6;margin-bottom:18px">${msg}</p><div class="two"><button class="btn block" data-act="close">취소</button><button class="btn block" style="background:var(--red);color:#fff" id="okBtn">${okLabel}</button></div>`);
+  $('#okBtn').onclick = () => { closeSheet(); fn(); };
+}
+
+function carForm(id) {
+  const c = id ? S.cars[id] : { cycleDays: 0 };
+  const cyc = [0, 7, 14, 21, 30];
+  openSheet(id ? '고객 정보 수정' : '새 고객(차량) 등록', `<form id="carForm">
+    <label class="f"><span>차량번호 *</span><input class="inp" name="plate" required value="${esc(c.plate)}" placeholder="예: 12가 3456" style="font-weight:700;font-size:20px"></label>
+    <div id="dupWarn"></div>
+    <div class="two">
+      <label class="f"><span>고객 이름</span><input class="inp" name="name" value="${esc(c.name)}" placeholder="홍길동"></label>
+      <label class="f"><span>차종</span><input class="inp" name="model" value="${esc(c.model)}" placeholder="그랜저"></label>
+    </div>
+    <label class="f"><span>연락처</span><input class="inp" name="phone" value="${esc(c.phone)}" placeholder="010-1234-5678" inputmode="tel"></label>
+    <label class="f"><span>주차 위치 / 주소</span><input class="inp" name="place" value="${esc(c.place)}" placeholder="예: OO아파트 102동 지하 2층"></label>
+    <label class="f"><span>기본 세차 금액 (원)</span><input class="inp" name="price" value="${esc(c.price)}" placeholder="예: 50000" inputmode="numeric"></label>
+    <label class="f"><span>정기 세차 주기</span><div class="seg">${cyc.map(d => `<label><input type="radio" name="cycleDays" value="${d}" ${Number(c.cycleDays || 0) === d ? 'checked' : ''}><span>${d ? d + '일' : '없음'}</span></label>`).join('')}</div></label>
+    <p class="hint">주기를 정하면, 세차할 때가 된 고객을 홈 화면에서 알려줘요.</p>
+    <label class="f"><span>메모</span><textarea class="inp" name="memo" style="min-height:80px" placeholder="예: 시트 가죽, 실내 방향제 X">${esc(c.memo)}</textarea></label>
+    <button class="btn pri block" type="submit">${id ? '수정 완료' : '등록하기'}</button>
+  </form>`);
+  const f = $('#carForm');
+  f.plate.oninput = () => {
+    const v = f.plate.value.replace(/\s/g, '');
+    const dup = v && carsArr().find(x => x.id !== id && (x.plate || '').replace(/\s/g, '') === v);
+    $('#dupWarn').innerHTML = dup ? `<p class="hint" style="color:var(--warn)">⚠️ 이미 등록된 차량번호예요 (${esc(dup.name || '')})</p>` : '';
+  };
+  f.onsubmit = e => {
+    e.preventDefault();
+    const fd = new FormData(f);
+    const obj = { ...(id ? S.cars[id] : { createdAt: Date.now() }), plate: fd.get('plate').trim(), name: fd.get('name').trim(), model: fd.get('model').trim(), phone: fmtPhone(fd.get('phone').trim()), place: fd.get('place').trim(), price: Number(String(fd.get('price')).replace(/\D/g, '')) || 0, cycleDays: Number(fd.get('cycleDays')) || 0, memo: fd.get('memo').trim() };
+    const nid = id || uid();
+    put('cars', nid, obj); closeSheet(); toast(id ? '수정했어요' : '고객을 등록했어요');
+    if (!id) setTimeout(() => openSheet('등록 완료', `<p style="font-size:17px;margin-bottom:16px"><b>${esc(obj.plate)}</b> 차량을 등록했어요.<br>바로 세차 예약을 잡을까요?</p><button class="btn pri block" data-act="newJob" data-car="${nid}">📅 예약 잡기</button><button class="btn block" style="margin-top:8px" data-act="close">나중에</button>`), 50);
+  };
+}
+
+function jobForm(id, preset = {}) {
+  const cars = carsArr().sort((a, b) => (a.plate || '').localeCompare(b.plate || '', 'ko'));
+  if (!cars.length) { openSheet('예약 추가', `<div class="empty">먼저 고객(차량)을 등록해 주세요</div><button class="btn pri block" data-act="newCar">＋ 고객 등록</button>`); return; }
+  const j = id ? S.jobs[id] : { carId: preset.car || '', date: preset.date || today(), time: '', type: '내외부', price: preset.car && S.cars[preset.car] ? S.cars[preset.car].price || '' : '', status: '예정', paid: false };
+  openSheet(id ? '예약 수정' : '세차 예약 추가', `<form id="jobForm">
+    <label class="f"><span>차량 *</span><select class="inp" name="carId" required>
+      <option value="">차량을 선택하세요</option>
+      ${cars.map(c => `<option value="${c.id}" ${j.carId === c.id ? 'selected' : ''}>${esc(c.plate)} · ${esc(c.name || '')}</option>`).join('')}
+    </select></label>
+    <div class="two">
+      <label class="f"><span>날짜 *</span><input class="inp" type="date" name="date" required value="${esc(j.date)}"></label>
+      <label class="f"><span>시간</span><input class="inp" type="time" name="time" value="${esc(j.time)}"></label>
+    </div>
+    <label class="f"><span>세차 종류</span><div class="seg">${TYPES.map(t => `<label><input type="radio" name="type" value="${t}" ${j.type === t ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></label>
+    <label class="f"><span>금액 (원)</span><input class="inp" name="price" value="${esc(j.price)}" inputmode="numeric" placeholder="예: 50000"></label>
+    <label class="f"><span>상태</span><div class="seg">${['예정', '완료', '취소'].map(t => `<label><input type="radio" name="status" value="${t}" ${j.status === t ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div></label>
+    <label class="check"><input type="checkbox" name="paid" ${j.paid ? 'checked' : ''}> 입금 받았어요</label>
+    <div id="payBox" style="display:${j.paid ? 'block' : 'none'}">
+      <div class="two">
+        <label class="f"><span>입금일</span><input class="inp" type="date" name="paidDate" value="${esc(j.paidDate || today())}"></label>
+        <label class="f"><span>방법</span><select class="inp" name="payMethod">${METHODS.map(m => `<option ${j.payMethod === m ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
+      </div>
+    </div>
+    <label class="f"><span>메모</span><input class="inp" name="memo" value="${esc(j.memo)}" placeholder="예: 반려동물 털 많음"></label>
+    <button class="btn pri block" type="submit">${id ? '수정 완료' : '예약 저장'}</button>
+    ${id ? `<button class="btn red block" type="button" style="margin-top:8px" data-act="delJob" data-id="${id}">이 예약 삭제</button>` : ''}
+  </form>`);
+  const f = $('#jobForm');
+  f.carId.onchange = () => { const c = S.cars[f.carId.value]; if (c && c.price && !f.price.value) f.price.value = c.price; };
+  f.paid.onchange = () => { $('#payBox').style.display = f.paid.checked ? 'block' : 'none'; };
+  f.onsubmit = e => {
+    e.preventDefault();
+    const fd = new FormData(f);
+    const paid = f.paid.checked;
+    const obj = { ...(id ? S.jobs[id] : { createdAt: Date.now() }), carId: fd.get('carId'), date: fd.get('date'), time: fd.get('time'), type: fd.get('type') || '', price: Number(String(fd.get('price')).replace(/\D/g, '')) || 0, status: fd.get('status'), paid, paidDate: paid ? fd.get('paidDate') : '', payMethod: paid ? fd.get('payMethod') : '', memo: fd.get('memo').trim() };
+    if (paid && !obj.paidAmount) obj.paidAmount = obj.price;
+    const nid = id || uid();
+    put('jobs', nid, obj); closeSheet(); toast(id ? '수정했어요' : '예약을 저장했어요');
+    if (!id) setTimeout(() => msgSheet(nid, 't1'), 50);
+  };
+}
+
+function payForm(id) {
+  const j = S.jobs[id], c = carOf({ ...j }) || {};
+  openSheet('입금 확인', `<form id="payForm">
+    <p style="margin-bottom:14px"><b class="plate">${esc(c.plate || '')}</b> <span class="sub">${esc(c.name || '')} · ${esc(fmtDate(j.date))} ${esc(j.type || '')}</span></p>
+    <label class="f"><span>받은 금액 (원)</span><input class="inp" name="amt" value="${esc(j.price)}" inputmode="numeric" style="font-size:20px;font-weight:700"></label>
+    <div class="two">
+      <label class="f"><span>입금일</span><input class="inp" type="date" name="paidDate" value="${today()}"></label>
+      <label class="f"><span>방법</span><select class="inp" name="payMethod">${METHODS.map(m => `<option>${m}</option>`).join('')}</select></label>
+    </div>
+    <button class="btn ok block" type="submit">💰 입금 완료 처리</button>
+  </form>`);
+  $('#payForm').onsubmit = e => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    put('jobs', id, { ...S.jobs[id], paid: true, paidAmount: Number(String(fd.get('amt')).replace(/\D/g, '')) || 0, paidDate: fd.get('paidDate'), payMethod: fd.get('payMethod') });
+    closeSheet(); setTimeout(() => openSheet('입금 확인 완료 ✓', `<p style="font-size:17px;margin-bottom:16px">감사 문자도 보낼까요?</p><button class="btn pri block" data-act="msgJob" data-id="${id}" data-tpl="t5">💬 입금 확인 문자 쓰기</button><button class="btn block" style="margin-top:8px" data-act="close">닫기</button>`), 50);
+  };
+}
+
+function completeJob(id) {
+  const j = S.jobs[id];
+  put('jobs', id, { ...j, status: '완료', completedAt: Date.now() });
+  const c = S.cars[j.carId];
+  const cyc = c ? Number(c.cycleDays) : 0;
+  const hasNext = jobsArr().some(x => x.carId === j.carId && x.status === '예정' && x.id !== id && x.date > j.date);
+  const nd = cyc > 0 ? addDays(j.date, cyc) : '';
+  openSheet('세차 완료 ✓', `<p style="font-size:17px;margin-bottom:16px"><b>${esc(c ? c.plate : '')}</b> 세차를 완료 처리했어요.</p>
+    <button class="btn pri block" data-act="msgJob" data-id="${id}" data-tpl="t3">💬 완료 + 입금 안내 문자</button>
+    ${j.paid ? '' : `<button class="btn soft block" style="margin-top:8px" data-act="pay" data-id="${id}">💰 바로 입금 확인</button>`}
+    ${nd && !hasNext ? `<button class="btn block" style="margin-top:8px" data-act="newJob" data-car="${j.carId}" data-date="${nd}">📅 다음 세차 ${esc(fmtDate(nd))} 예약</button>` : ''}
+    <button class="btn block" style="margin-top:8px" data-act="close">닫기</button>`);
+}
+
+function carDetail(id) {
+  const c = S.cars[id]; if (!c) return;
+  const hist = jobsArr().filter(j => j.carId === id).sort(sortJobs).reverse();
+  const total = hist.filter(j => j.status === '완료').reduce((a, j) => a + (+j.price || 0), 0);
+  const tel = String(c.phone || '').replace(/\D/g, '');
+  openSheet(esc(c.plate), `
+    <dl class="info">
+      <dt>고객</dt><dd>${esc(c.name || '-')}</dd>
+      <dt>연락처</dt><dd>${tel ? `<a href="tel:${tel}" style="color:var(--pri);font-weight:700">${esc(fmtPhone(c.phone))}</a>` : '-'}</dd>
+      <dt>차종</dt><dd>${esc(c.model || '-')}</dd>
+      <dt>주차 위치</dt><dd>${esc(c.place || '-')}</dd>
+      <dt>기본 금액</dt><dd>${c.price ? won(c.price) + '원' : '-'}</dd>
+      <dt>정기 주기</dt><dd>${Number(c.cycleDays) ? c.cycleDays + '일마다' : '없음'}</dd>
+      ${c.memo ? `<dt>메모</dt><dd>${esc(c.memo)}</dd>` : ''}
+      <dt>누적</dt><dd>${hist.filter(j => j.status === '완료').length}회 · ${won(total)}원</dd>
+    </dl>
+    <div class="two" style="margin-bottom:8px">
+      <button class="btn pri block" data-act="newJob" data-car="${id}">📅 예약</button>
+      <button class="btn soft block" data-act="msgCar" data-id="${id}">💬 문자</button>
+    </div>
+    <div class="two"><button class="btn block" data-act="editCar" data-id="${id}">정보 수정</button><button class="btn red block" data-act="delCar" data-id="${id}">삭제</button></div>
+    <h2>세차 기록 <small>${hist.length}건</small></h2>
+    ${hist.length ? `<div class="sumlist">${hist.map(j => `<div data-act="editJob" data-id="${j.id}" style="cursor:pointer"><span>${esc(fmtDate(j.date))} <span class="sub">${esc(j.type || '')}</span><br>${j.status === '완료' ? (j.paid ? '<span class="badge b-ok">입금완료</span>' : '<span class="badge b-warn">미입금</span>') : j.status === '취소' ? '<span class="badge b-gray">취소</span>' : '<span class="badge b-blue">예정</span>'}</span><b>${won(j.price)}원</b></div>`).join('')}</div>` : '<div class="empty">아직 기록이 없어요</div>'}
+  `);
+}
+
+/* messages */
+function fill(body, job, car) {
+  const s = settings(); car = car || {}; job = job || {};
+  const lw = car.id ? lastWash(car.id) : '';
+  const map = { 상호: s.bizName, 고객명: car.name || '고객', 차량번호: car.plate || '', 차종: car.model || '', 날짜: fmtDate(job.date), 시간: job.time || '', 세차종류: job.type || '', 금액: won(job.price != null ? job.price : car.price), 계좌: s.account || '(계좌 미설정)', 연락처: s.phone, 주차위치: car.place || '', 최근세차일: fmtDate(lw), 경과일: lw ? diffDays(lw, today()) : '' };
+  return body.replace(/\{([^}]+)\}/g, (m, k) => (k in map ? map[k] : m)).replace(/ {2,}/g, ' ');
+}
+function smsHref(phone, text) { const p = String(phone || '').replace(/\D/g, ''); return `sms:${p}${isIOS ? '&' : '?'}body=${encodeURIComponent(text)}`; }
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('복사했어요! 문자앱에 붙여넣기 하세요'); }
+  catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('복사했어요!'); } catch (_) { toast('길게 눌러 직접 복사해 주세요'); } ta.remove(); }
+}
+function msgSheet(jobId, tplId, carId) {
+  const s = settings();
+  const job = jobId ? { ...S.jobs[jobId], id: jobId } : null;
+  const cid = job ? job.carId : carId;
+  const car = S.cars[cid] ? { ...S.cars[cid], id: cid } : null;
+  const ctxJob = job || (car ? nextJob(car.id) || null : null);
+  let tid = tplId || (job ? (job.status === '완료' ? (job.paid ? 't5' : 't3') : 't1') : 't6');
+  if (!s.templates.find(t => t.id === tid)) tid = s.templates[0] && s.templates[0].id;
+  const draw = () => {
+    const tpl = s.templates.find(t => t.id === tid);
+    const text = tpl ? fill(tpl.body, ctxJob || { price: car && car.price }, car) : '';
+    openSheet('문자 보내기', `
+      <p style="margin-bottom:12px"><b>${esc(car ? car.plate : '')}</b> <span class="sub">${esc(car ? car.name || '' : '')} · ${esc(car ? fmtPhone(car.phone) || '연락처 없음' : '')}</span></p>
+      <div class="chips">${s.templates.map(t => `<button class="chip ${t.id === tid ? 'on' : ''}" data-tpl-pick="${t.id}">${esc(t.name)}</button>`).join('')}</div>
+      <label class="f"><span>보낼 내용 (직접 고쳐도 돼요)</span><textarea class="inp" id="msgText">${esc(text)}</textarea></label>
+      <div class="two">
+        <button class="btn pri block" id="copyBtn">📋 복사하기</button>
+        ${car && car.phone ? `<a class="btn ok block" id="smsBtn" href="${smsHref(car.phone, text)}">✉️ 문자앱 열기</a>` : '<button class="btn block" disabled style="opacity:.5">연락처 없음</button>'}
+      </div>
+      <p class="hint" style="margin-top:12px">문자앱이 안 열리면 '복사하기' 후 문자앱에 붙여넣으세요.${car && car.phone ? ` 받는 번호: ${esc(fmtPhone(car.phone))}` : ''}</p>`);
+    document.querySelectorAll('[data-tpl-pick]').forEach(b => b.onclick = () => { tid = b.dataset.tplPick; draw(); });
+    const ta = $('#msgText');
+    ta.oninput = () => { const a = $('#smsBtn'); if (a) a.href = smsHref(car.phone, ta.value); };
+    $('#copyBtn').onclick = () => copyText(ta.value);
+  };
+  draw();
+}
+function bulkSheet(kind) {
+  const tm = addDays(today(), 1);
+  const list = kind === 'remind' ? jobsArr().filter(j => j.date === tm && j.status === '예정').sort(sortJobs) : unpaidJobs();
+  const tplId = kind === 'remind' ? 't2' : 't4';
+  const tpl = settings().templates.find(t => t.id === tplId) || settings().templates[0];
+  openSheet(kind === 'remind' ? '내일 예약자 알림' : '미입금 입금 요청', list.length ? `<p class="hint" style="margin:0 0 12px">'${esc(tpl.name)}' 양식으로 한 명씩 보내요.</p>` + list.map(j => {
+    const c = carOf(j) || {}; const text = fill(tpl.body, j, c);
+    return `<div class="card"><div class="row between"><div><b>${esc(c.plate || '')}</b> <span class="sub">${esc(c.name || '')} ${esc(j.time || '')}</span></div><span class="sub">${esc(fmtPhone(c.phone))}</span></div>
+      <div class="msgprev">${esc(text)}</div>
+      <div class="actions"><button class="btn sm" data-copy="${encodeURIComponent(text)}">📋 복사</button>${c.phone ? `<a class="btn ok sm" href="${smsHref(c.phone, text)}">✉️ 문자앱</a>` : ''}<button class="btn sm" data-act="msgJob" data-id="${j.id}" data-tpl="${tplId}">고쳐서 보내기</button></div></div>`;
+  }).join('') : '<div class="empty">보낼 대상이 없어요</div>');
+  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(decodeURIComponent(b.dataset.copy)));
+}
+function tplForm(id) {
+  const s = settings();
+  const t = id ? s.templates.find(x => x.id === id) : { name: '', body: '' };
+  openSheet(id ? '문자 양식 수정' : '새 문자 양식', `<form id="tplForm">
+    <label class="f"><span>양식 이름</span><input class="inp" name="name" required value="${esc(t.name)}" placeholder="예: 우천 연기 안내"></label>
+    <label class="f"><span>내용</span><textarea class="inp" name="body" id="tplBody" required>${esc(t.body)}</textarea></label>
+    <p class="hint">아래 단어를 누르면 내용에 들어가요. 보낼 때 고객 정보로 자동으로 바뀌어요.</p>
+    <div class="vars">${VARS.map(v => `<button type="button" data-var="${v}">{${v}}</button>`).join('')}</div>
+    <button class="btn pri block" type="submit">저장</button>
+    ${id ? `<button class="btn red block" type="button" style="margin-top:8px" id="tplDel">이 양식 삭제</button>` : ''}
+  </form>`);
+  const ta = $('#tplBody');
+  document.querySelectorAll('[data-var]').forEach(b => b.onclick = () => { const v = '{' + b.dataset.var + '}'; const p = ta.selectionStart ?? ta.value.length; ta.value = ta.value.slice(0, p) + v + ta.value.slice(ta.selectionEnd ?? p); ta.focus(); ta.selectionStart = ta.selectionEnd = p + v.length; });
+  $('#tplForm').onsubmit = e => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    const list = s.templates.slice(); const obj = { id: id || 't' + uid(), name: fd.get('name').trim(), body: fd.get('body') };
+    const i = list.findIndex(x => x.id === id); if (i >= 0) list[i] = obj; else list.push(obj);
+    saveSettings({ ...s, templates: list }); closeSheet(); toast('양식을 저장했어요');
+  };
+  if (id) $('#tplDel').onclick = () => { closeSheet(); confirmSheet(`'${esc(t.name)}' 양식을 삭제할까요?`, '삭제', () => saveSettings({ ...s, templates: s.templates.filter(x => x.id !== id) })); };
+}
+
+/* ---------- events ---------- */
+const ACT = {
+  tab: d => { S.tab = d.k; closeSheet(); render(); window.scrollTo(0, 0); },
+  schedFilter: d => { S.schedFilter = d.k; render(); },
+  month: d => { const [y, m] = S.month.split('-').map(Number); const dt = new Date(y, m - 1 + Number(d.d), 1); S.month = dt.getFullYear() + '-' + pad(dt.getMonth() + 1); render(); },
+  newCar: () => carForm(null),
+  editCar: d => carForm(d.id),
+  carDetail: d => carDetail(d.id),
+  delCar: d => { const c = S.cars[d.id]; const n = jobsArr().filter(j => j.carId === d.id).length; confirmSheet(`<b>${esc(c.plate)}</b> 고객을 삭제할까요?${n ? `<br><span class="sub">세차 기록 ${n}건도 함께 삭제돼요.</span>` : ''}`, '삭제', () => { jobsArr().filter(j => j.carId === d.id).forEach(j => remove('jobs', j.id)); remove('cars', d.id); toast('삭제했어요'); }); },
+  newJob: d => jobForm(null, { car: d.car, date: d.date }),
+  editJob: d => jobForm(d.id),
+  delJob: d => confirmSheet('이 예약을 삭제할까요?', '삭제', () => { remove('jobs', d.id); toast('삭제했어요'); }),
+  complete: d => completeJob(d.id),
+  pay: d => payForm(d.id),
+  msgJob: d => msgSheet(d.id, d.tpl),
+  msgCar: d => msgSheet(null, d.tpl, d.id),
+  bulkRemind: () => bulkSheet('remind'),
+  bulkUnpaid: () => bulkSheet('unpaid'),
+  editTpl: d => tplForm(d.id || null),
+  close: () => closeSheet(),
+  closeBg: (d, el, e) => { if (e.target === el) closeSheet(); }
+};
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const fn = ACT[t.dataset.act]; if (!fn) return;
+  if (t.dataset.act !== 'closeBg') e.stopPropagation();
+  fn(t.dataset, t, e);
+});
+document.addEventListener('input', e => { if (e.target.id === 'custQ') { S.custQ = e.target.value; render(); } });
+document.addEventListener('submit', e => {
+  if (e.target.id === 'setForm') { e.preventDefault(); const fd = new FormData(e.target); saveSettings({ ...settings(), bizName: fd.get('bizName').trim() || '출장세차', phone: fmtPhone(fd.get('phone').trim()), account: fd.get('account').trim() }); toast('저장했어요'); }
+});
+init();
+</script>
+</body>
+</html>
