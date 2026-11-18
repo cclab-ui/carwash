@@ -184,7 +184,10 @@ const settings = () => Object.assign({}, DEFAULT_SETTINGS, S.settings || {});
 /* ---------- 서버 저장 (Supabase · 위스키 앱과 같은 프로젝트, carwash_ 표) ---------- */
 const SB_URL = 'https://krsspmovqxucgocfeaec.supabase.co';
 const SB_KEY = 'sb_publishable_l0Q4Pc2ucOpYBG2bKtXiDA_02xNPyTU'; // 공개용 키 (승인된 멤버만 읽고 쓰게 잠금 규칙으로 보호됨)
-const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+// 로그인 유지: 세션을 이 기기에 저장하고 자동으로 갱신 (서버 쪽 로그인 유지 기간은 '제한 없음')
+const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'carwash-auth' } }) : null;
+// 브라우저가 저장공간을 정리할 때 이 앱 데이터(로그인 포함)는 지우지 않도록 요청
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
 const TBL = { cars: 'carwash_cars', jobs: 'carwash_jobs' };
 const ME = { id: null, email: '', name: '', role: '' };
 S.meta = { lastAt: '', lastBy: '' }; S.members = []; S.requests = [];
@@ -249,6 +252,7 @@ function authScreen(msg, ok) {
     <p class="lead">고객 · 일정 · 입금 · 문자를 한 번에</p>
     <div class="auth-card">
       <div class="auth-tabs"><button class="${!signup ? 'on' : ''}" id="tLogin">로그인</button><button class="${signup ? 'on' : ''}" id="tSignup">처음이에요 (가입)</button></div>
+      ${S.note ? `<div class="auth-msg">${esc(S.note)}</div>` : ''}
       ${msg ? `<div class="auth-msg ${ok ? 'ok' : ''}">${msg}</div>` : ''}
       <form id="authForm">
         ${signup ? `<label class="f"><span>이름 (관리 화면에 보여요)</span><input class="inp" name="name" required maxlength="12" placeholder="예: 홍길동"></label>` : ''}
@@ -326,7 +330,20 @@ async function afterLogin(force) {
   await loadAll();
 }
 
+/* 카톡·네이버·인스타 등 앱 안 브라우저로 열면 로그인이 따로 저장돼서 풀린 것처럼 보임 → 기본 브라우저로 열기 */
+function inAppGuard() {
+  const ua = navigator.userAgent || '';
+  const url = location.href;
+  if (/KAKAOTALK/i.test(ua)) { location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url); return true; }
+  const inApp = /NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|SamsungBrowser\/.*CrossApp/i.test(ua);
+  if (!inApp) return false;
+  if (/Android/i.test(ua)) { location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end'; return true; }
+  S.note = '지금은 다른 앱 안에서 열려 있어요. 오른쪽 위 메뉴에서 "Safari로 열기"를 눌러 주세요. 그래야 로그인이 계속 유지돼요.';
+  return false;
+}
+
 async function init() {
+  inAppGuard();
   $('#todayLabel').textContent = fmtDate(today()) + ' · 오늘도 화이팅!';
   if (!sb) { S.mode = 'db'; S.note = '서버에 연결하지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.'; render(); return; }
   sb.auth.onAuthStateChange((ev, session) => {
