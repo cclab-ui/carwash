@@ -251,7 +251,7 @@ function authScreen(msg, ok) {
       <div class="auth-tabs"><button class="${!signup ? 'on' : ''}" id="tLogin">로그인</button><button class="${signup ? 'on' : ''}" id="tSignup">처음이에요 (가입)</button></div>
       ${msg ? `<div class="auth-msg ${ok ? 'ok' : ''}">${msg}</div>` : ''}
       <form id="authForm">
-        ${signup ? `<label class="f"><span>이름 (관리 화면에 보여요)</span><input class="inp" name="name" required maxlength="12" placeholder="예: 아빠"></label>` : ''}
+        ${signup ? `<label class="f"><span>이름 (관리 화면에 보여요)</span><input class="inp" name="name" required maxlength="12" placeholder="예: 홍길동"></label>` : ''}
         <label class="f"><span>이메일</span><input class="inp" name="email" type="email" autocomplete="email" required placeholder="example@naver.com"></label>
         <label class="f"><span>비밀번호${signup ? ' (6자 이상)' : ''}</span><input class="inp" name="pw" type="password" minlength="6" required autocomplete="${signup ? 'new-password' : 'current-password'}"></label>
         ${signup ? '<p class="hint">⚠️ 비밀번호 찾기 기능이 없어요. 꼭 적어 두세요.</p>' : ''}
